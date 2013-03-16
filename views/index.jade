@@ -1,5 +1,18 @@
 extends layout
 
+
+
 block content
-  h1= title
-  p Welcome to #{title}
+  script(src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js")
+  script(src="/socket.io/socket.io.js")
+  script(type='text/javascript')
+    var io = io.connect();
+
+    // Send the ready event.
+    io.emit('ready');
+
+    // Listen for the new visitor event.
+    io.on('new visitor', function() {
+      $('body').append('<p>New visitor, hooray! ' + new Date().toString() +'</p>')
+      });
+  h1 hello
