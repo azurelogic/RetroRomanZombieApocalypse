@@ -21,8 +21,9 @@ app.configure('development', function () {
   app.use(express.errorHandler());
 });
 
-app.io.route('ready', function(req) {
-  req.io.broadcast('new visitor')
+app.io.route('iMove', function(req) {
+  console.log("things are happening");
+  req.io.broadcast('youMove', req.data);
 })
 
 
