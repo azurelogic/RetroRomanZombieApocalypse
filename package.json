@@ -9,6 +9,7 @@
     "jade": "*",
     "less-middleware": "*",
     "mongoose": "*",
-    "express.io": "*"
+    "express.io": "*",
+    "node-uuid": "*"
   }
 }

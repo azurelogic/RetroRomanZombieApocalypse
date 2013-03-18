@@ -4,7 +4,8 @@
 
 var express = require('express.io')
 //, routes = require('./routes')
-  , path = require('path');
+  , path = require('path')
+  , uuid = require('node-uuid');
 
 var app = express().http().io();
 
@@ -20,6 +21,17 @@ app.configure(function () {
 app.configure('development', function () {
   app.use(express.errorHandler());
 });
+
+app.io.route('getId', function(req){
+  var id = uuid.v4();
+  console.log(id)
+  req.io.emit('setId', { id: id });
+})
+
+app.io.route('joinRoom', function(req) {
+  req.io.join(req.data.room);
+  req.io.room(req.data.room).broadcast('hasJoinedRoom', req.data);
+})
 
 app.io.route('iMove', function(req) {
   console.log("things are happening");
