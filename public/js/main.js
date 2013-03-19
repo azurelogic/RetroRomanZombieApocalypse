@@ -15,9 +15,14 @@ var players;
 var playerIds;
 var socket;
 var myId;
+var lastTime;
+var playerVelocityFactor;
 
 function init() {
   console.log("starting init");
+
+  lastTime = 0;
+  playerVelocityFactor = 50;
 
   players = [];
   playerIds = [];
@@ -40,13 +45,18 @@ function handleImageLoad() {
 }
 
 function tick() {
+  var now = Date.now();
+  var diffTime = (now - lastTime) / 1000;
   for (var id = 0; id < playerIds.length; id++)
   {
-      players[playerIds[id]].sprite.x += players[playerIds[id]].leftright;
-      players[playerIds[id]].sprite.y += players[playerIds[id]].updown;
+      players[playerIds[id]].sprite.x += Math.round(players[playerIds[id]].leftright * diffTime * playerVelocityFactor);
+      players[playerIds[id]].sprite.y += Math.round(players[playerIds[id]].updown * diffTime * playerVelocityFactor);
   }
 
+  //add heartbeat based on modulus of diffTime...
+
   stage.update();
+  lastTime = now;
 }
 
 function handleKeyDown(e){
@@ -108,8 +118,8 @@ function setCharacterMovementFromSocket(data) {
 
   if (players[data.player.id])
   {
-    players[data.player.id].updown = Math.round(0.8 * data.player.updown);
-    players[data.player.id].leftright = Math.round(0.8 * data.player.leftright);
+    players[data.player.id].updown = 0.8 * data.player.updown;
+    players[data.player.id].leftright = 0.8 * data.player.leftright;
     players[data.player.id].sprite.x = data.player.spritex;
     players[data.player.id].sprite.y = data.player.spritey;
   }
