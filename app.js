@@ -23,9 +23,11 @@ app.configure('development', function () {
 });
 
 app.io.route('getId', function(req){
-  var id = uuid.v4();
-  console.log(id)
-  req.io.emit('setId', { id: id });
+  var data = {};
+  data.player = {};
+  data.player.id = uuid.v4();
+  console.log(data.player.id);
+  req.io.emit('setId', data);
 })
 
 app.io.route('joinRoom', function(req) {

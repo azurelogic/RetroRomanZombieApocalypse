@@ -52,52 +52,74 @@ function tick() {
 function handleKeyDown(e){
   if (!e)
     var e = window.event;
+  var nonGameKeyPressed = true;
   switch(e.keyCode)
   {
     case KEYCODE_LEFT:
-      players[myId].leftright = -1; break;
+      players[myId].leftright = -1; nonGameKeyPressed = false; break;
     case KEYCODE_RIGHT:
-      players[myId].leftright = 1; break;
+      players[myId].leftright = 1; nonGameKeyPressed = false; break;
     case KEYCODE_DOWN:
-      players[myId].updown = 1; break;
+      players[myId].updown = 1; nonGameKeyPressed = false; break;
     case  KEYCODE_UP:
-      players[myId].updown = -1; break;
+      players[myId].updown = -1; nonGameKeyPressed = false; break;
   }
 
-  socket.emit('iMove', { id: myId, leftright : players[myId].leftright, updown : players[myId].updown, x : players[myId].sprite.x, y : players[myId].sprite.y });
-  return false;
+  if (!nonGameKeyPressed)
+    sendPlayerDataOnRealtimeRoute('iMove');
+  return nonGameKeyPressed;
 }
 
 function handleKeyUp(e){
   if (!e)
     var e = window.event;
+  var nonGameKeyPressed = true;
   switch(e.keyCode)
   {
     case KEYCODE_LEFT:
     case KEYCODE_RIGHT:
-      players[myId].leftright = 0; break;
+      players[myId].leftright = 0; nonGameKeyPressed = false; break;
     case KEYCODE_DOWN:
     case KEYCODE_UP:
-      players[myId].updown = 0; break;
+      players[myId].updown = 0; nonGameKeyPressed = false; break;
   }
 
-  socket.emit('iMove', { id: myId, leftright : players[myId].leftright, updown : players[myId].updown, x : players[myId].sprite.x, y : players[myId].sprite.y });
-  return false;
+  if (!nonGameKeyPressed)
+    sendPlayerDataOnRealtimeRoute('iMove');
+  return nonGameKeyPressed;
+}
+
+function sendPlayerDataOnRealtimeRoute(messsageRoute) {
+  var data = {};
+  data.player = {};
+  data.player.id = myId;
+  data.player.room = "theRoom";
+  data.player.leftright = players[myId].leftright;
+  data.player.updown = players[myId].updown;
+  data.player.spritex = players[myId].sprite.x;
+  data.player.spritey = players[myId].sprite.y;
+  
+  socket.emit(messsageRoute, data);
 }
 
 function setCharacterMovementFromSocket(data) {
   console.log("receiving data");
-  if (players[data.id])
+
+  if (players[data.player.id])
   {
-    players[data.id].updown = Math.round(0.8 * data.updown);
-    players[data.id].leftright = Math.round(0.8 * data.leftright);
-    players[data.id].sprite.x = data.x;
-    players[data.id].sprite.y = data.y;
+    players[data.player.id].updown = Math.round(0.8 * data.player.updown);
+    players[data.player.id].leftright = Math.round(0.8 * data.player.leftright);
+    players[data.player.id].sprite.x = data.player.spritex;
+    players[data.player.id].sprite.y = data.player.spritey;
+  }
+  else
+  {
+    addNewPlayer(data);
   }
 }
 
 function joinRoom(data) {
-  myId = data.id;
+  myId = data.player.id;
 
   playerIds.push(myId);
   players[myId] = {};
@@ -112,7 +134,7 @@ function joinRoom(data) {
   stage.update();
 
   console.log(myId);
-  socket.emit('joinRoom', { room : "theRoom", id: myId, leftright : players[myId].leftright, updown : players[myId].updown, x : players[myId].sprite.x, y : players[myId].sprite.y  });
+  sendPlayerDataOnRealtimeRoute('joinRoom');
   socket.on('youMove', setCharacterMovementFromSocket);
   socket.on('hasJoinedRoom', addNewPlayer);
 
@@ -127,17 +149,15 @@ function joinRoom(data) {
 }
 
 function addNewPlayer(data) {
-  playerIds.push(data.id);
-  players[data.id] = {};
-  players[data.id].id = data.id;
-  players[data.id].sprite = new createjs.Bitmap(characterImg);
-  console.log(players[data.id].sprite);
-  players[data.id].sprite.x = data.x;
-  players[data.id].sprite.y = data.y;
-  players[data.id].updown = data.updown;
-  players[data.id].leftright = data.leftright;
-  stage.addChild(players[data.id].sprite);
+  playerIds.push(data.player.id);
+  players[data.player.id] = {};
+  players[data.player.id].id = data.player.id;
+  players[data.player.id].sprite = new createjs.Bitmap(characterImg);
+  console.log(players[data.player.id].sprite);
+  players[data.player.id].sprite.x = data.player.spritex;
+  players[data.player.id].sprite.y = data.player.spritey;
+  players[data.player.id].updown = data.player.updown;
+  players[data.player.id].leftright = data.player.leftright;
+  stage.addChild(players[data.player.id].sprite);
   stage.update();
-
-
 }
