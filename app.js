@@ -22,6 +22,10 @@ app.configure('development', function () {
   app.use(express.errorHandler());
 });
 
+app.io.route('disconnect', function(){
+
+})
+
 app.io.route('getId', function(req){
   var data = {};
   data.player = {};
@@ -37,7 +41,7 @@ app.io.route('joinRoom', function(req) {
 
 app.io.route('iMove', function(req) {
   console.log("things are happening");
-  req.io.broadcast('youMove', req.data);
+  req.io.room(req.data.room).broadcast('youMove', req.data);
 })
 
 

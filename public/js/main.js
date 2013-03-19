@@ -91,9 +91,10 @@ function handleKeyUp(e){
 
 function sendPlayerDataOnRealtimeRoute(messsageRoute) {
   var data = {};
+  data.room = "theRoom";
+
   data.player = {};
   data.player.id = myId;
-  data.player.room = "theRoom";
   data.player.leftright = players[myId].leftright;
   data.player.updown = players[myId].updown;
   data.player.spritex = players[myId].sprite.x;
@@ -122,14 +123,17 @@ function joinRoom(data) {
   myId = data.player.id;
 
   playerIds.push(myId);
+
   players[myId] = {};
   players[myId].id = myId;
+
   players[myId].sprite = new createjs.Bitmap(characterImg);
   console.log(players[myId].sprite);
   players[myId].sprite.x = canvas.width / 2;
   players[myId].sprite.y = canvas.height / 2;
   players[myId].updown = 0;
   players[myId].leftright = 0;
+
   stage.addChild(players[myId].sprite);
   stage.update();
 
@@ -150,14 +154,17 @@ function joinRoom(data) {
 
 function addNewPlayer(data) {
   playerIds.push(data.player.id);
+
   players[data.player.id] = {};
   players[data.player.id].id = data.player.id;
+
   players[data.player.id].sprite = new createjs.Bitmap(characterImg);
   console.log(players[data.player.id].sprite);
   players[data.player.id].sprite.x = data.player.spritex;
   players[data.player.id].sprite.y = data.player.spritey;
   players[data.player.id].updown = data.player.updown;
   players[data.player.id].leftright = data.player.leftright;
+
   stage.addChild(players[data.player.id].sprite);
   stage.update();
 }
