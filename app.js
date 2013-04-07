@@ -1,7 +1,4 @@
-/**
- * Module dependencies.
- */
-
+// module dependencies
 var express = require('express.io')
 //, routes = require('./routes')
   , path = require('path')
@@ -9,6 +6,7 @@ var express = require('express.io')
 
 var app = express().http().io();
 
+// configuration
 app.configure(function () {
   app.set('port', process.env.PORT || 3000);
   app.set('view engine', 'jade');
@@ -22,6 +20,8 @@ app.configure('development', function () {
   app.use(express.errorHandler());
 });
 
+
+// real-time routes
 app.io.route('disconnect', function(){
 
 })
@@ -45,11 +45,16 @@ app.io.route('iMove', function(req) {
 })
 
 
+
+// path routes
 app.get('/', function(req, res){
   res.render('index', { title: 'Express' });
 });
 //app.get('/', routes.index);
 
+
+
+// start the server
 app.listen(app.get('port'), function () {
   console.log("Express server listening on port " + app.get('port'));
 });
