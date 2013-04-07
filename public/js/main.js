@@ -18,6 +18,35 @@ var myId;
 var lastTime;
 var playerVelocityFactor;
 
+function Player(options) {
+  this.self = this;
+  this.id = options.id;
+  this.sprite = new createjs.Bitmap(characterImg);
+  this.sprite.x = options.x;
+  this.sprite.y = options.y;
+  this.updown = options.updown;
+  this.leftright = options.leftright;
+
+  stage.addChild(this.sprite);
+  stage.update();
+}
+
+Player.prototype.updatePositionAndVelocity = function(options) {
+  this.sprite.x = options.x;
+  this.sprite.y = options.y;
+  this.updown = 0.8 * options.updown;
+  this.leftright = 0.8 * options.leftright;
+}
+
+Player.prototype.appendPlayerDataToMessage = function(data) {
+  data.player = {};
+  data.player.id = this.id;
+  data.player.leftright = this.leftright;
+  data.player.updown = this.updown;
+  data.player.spritex = this.sprite.x;
+  data.player.spritey = this.sprite.y;
+}
+
 function init() {
   console.log("starting init");
 
@@ -103,12 +132,7 @@ function sendPlayerDataOnRealtimeRoute(messsageRoute) {
   var data = {};
   data.room = "theRoom";
 
-  data.player = {};
-  data.player.id = myId;
-  data.player.leftright = players[myId].leftright;
-  data.player.updown = players[myId].updown;
-  data.player.spritex = players[myId].sprite.x;
-  data.player.spritey = players[myId].sprite.y;
+  players[myId].appendPlayerDataToMessage(data);
   
   socket.emit(messsageRoute, data);
 }
@@ -118,10 +142,12 @@ function setCharacterMovementFromSocket(data) {
 
   if (players[data.player.id])
   {
-    players[data.player.id].updown = 0.8 * data.player.updown;
-    players[data.player.id].leftright = 0.8 * data.player.leftright;
-    players[data.player.id].sprite.x = data.player.spritex;
-    players[data.player.id].sprite.y = data.player.spritey;
+    players[data.player.id].updatePositionAndVelocity({
+      x: data.player.spritex,
+      y: data.player.spritey,
+      updown: data.player.updown,
+      leftright: data.player.leftright
+    })
   }
   else
   {
@@ -134,20 +160,17 @@ function joinRoom(data) {
 
   playerIds.push(myId);
 
-  players[myId] = {};
-  players[myId].id = myId;
+  players[myId] = new Player({
+    id: myId,
+    x: canvas.width / 2,
+    y: canvas.height / 2,
+    updown: 0,
+    leftright: 0
+  });
 
-  players[myId].sprite = new createjs.Bitmap(characterImg);
   console.log(players[myId].sprite);
-  players[myId].sprite.x = canvas.width / 2;
-  players[myId].sprite.y = canvas.height / 2;
-  players[myId].updown = 0;
-  players[myId].leftright = 0;
-
-  stage.addChild(players[myId].sprite);
-  stage.update();
-
   console.log(myId);
+
   sendPlayerDataOnRealtimeRoute('joinRoom');
   socket.on('youMove', setCharacterMovementFromSocket);
   socket.on('hasJoinedRoom', addNewPlayer);
@@ -165,16 +188,12 @@ function joinRoom(data) {
 function addNewPlayer(data) {
   playerIds.push(data.player.id);
 
-  players[data.player.id] = {};
-  players[data.player.id].id = data.player.id;
-
-  players[data.player.id].sprite = new createjs.Bitmap(characterImg);
+  players[data.player.id] = new Player({
+    id: data.player.id,
+    x: data.player.spritex,
+    y: data.player.spritey,
+    updown: data.player.updown,
+    leftright: data.player.leftright
+  });
   console.log(players[data.player.id].sprite);
-  players[data.player.id].sprite.x = data.player.spritex;
-  players[data.player.id].sprite.y = data.player.spritey;
-  players[data.player.id].updown = data.player.updown;
-  players[data.player.id].leftright = data.player.leftright;
-
-  stage.addChild(players[data.player.id].sprite);
-  stage.update();
 }
