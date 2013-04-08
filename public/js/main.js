@@ -16,6 +16,7 @@ var playerIds;
 var socket;
 var myId;
 var lastTime;
+var lastHeartbeat;
 var playerVelocityFactor;
 
 function Player(options) {
@@ -47,10 +48,16 @@ Player.prototype.appendPlayerDataToMessage = function(data) {
   data.player.spritey = this.sprite.y;
 }
 
+Player.prototype.move = function (deltaTime) {
+  this.sprite.x += Math.round(this.leftright * deltaTime * playerVelocityFactor);
+  this.sprite.y += Math.round(this.updown * deltaTime * playerVelocityFactor);
+}
+
 function init() {
   console.log("starting init");
 
   lastTime = 0;
+  lastHeartbeat = 0;
   playerVelocityFactor = 50;
 
   players = [];
@@ -75,60 +82,74 @@ function handleImageLoad() {
 
 function tick() {
   var now = Date.now();
-  var diffTime = (now - lastTime) / 1000;
-  for (var id = 0; id < playerIds.length; id++)
-  {
-      players[playerIds[id]].sprite.x += Math.round(players[playerIds[id]].leftright * diffTime * playerVelocityFactor);
-      players[playerIds[id]].sprite.y += Math.round(players[playerIds[id]].updown * diffTime * playerVelocityFactor);
-  }
+  var deltaTime = (now - lastTime) / 1000;
 
-  //add heartbeat based on modulus of diffTime...
+  // move all of the characters
+  for (var id = 0; id < playerIds.length; id++)
+    players[playerIds[id]].move(deltaTime);
+
+  //heartbeat every 500 ms
+  if (now - lastHeartbeat > 500)
+  {
+    sendDataOnRealtimeRoute('iMove');
+    lastHeartbeat = now;
+  }
 
   stage.update();
   lastTime = now;
 }
 
 function handleKeyDown(e){
-  if (!e)
-    var e = window.event;
-  var nonGameKeyPressed = true;
-  switch(e.keyCode)
-  {
-    case KEYCODE_LEFT:
-      players[myId].leftright = -1; nonGameKeyPressed = false; break;
-    case KEYCODE_RIGHT:
-      players[myId].leftright = 1; nonGameKeyPressed = false; break;
-    case KEYCODE_DOWN:
-      players[myId].updown = 1; nonGameKeyPressed = false; break;
-    case  KEYCODE_UP:
-      players[myId].updown = -1; nonGameKeyPressed = false; break;
-  }
-
-  if (!nonGameKeyPressed)
-    sendPlayerDataOnRealtimeRoute('iMove');
-  return nonGameKeyPressed;
+  return handleKeySignals(e , function (e, player) {
+    var nonGameKeyPressed = true;
+    switch(e.keyCode)
+    {
+      case KEYCODE_LEFT:
+        player.leftright = -1; nonGameKeyPressed = false; break;
+      case KEYCODE_RIGHT:
+        player.leftright = 1; nonGameKeyPressed = false; break;
+      case KEYCODE_DOWN:
+        player.updown = 1; nonGameKeyPressed = false; break;
+      case  KEYCODE_UP:
+        player.updown = -1; nonGameKeyPressed = false; break;
+    }
+    return nonGameKeyPressed;
+  });
 }
 
 function handleKeyUp(e){
+  return handleKeySignals(e , function (e, player) {
+    var nonGameKeyPressed = true;
+    switch(e.keyCode)
+    {
+      case KEYCODE_LEFT:
+      case KEYCODE_RIGHT:
+        player.leftright = 0; nonGameKeyPressed = false; break;
+      case KEYCODE_DOWN:
+      case KEYCODE_UP:
+        player.updown = 0; nonGameKeyPressed = false; break;
+    }
+    return nonGameKeyPressed;
+  });
+}
+
+function handleKeySignals(e, switchHandler) {
   if (!e)
     var e = window.event;
-  var nonGameKeyPressed = true;
-  switch(e.keyCode)
-  {
-    case KEYCODE_LEFT:
-    case KEYCODE_RIGHT:
-      players[myId].leftright = 0; nonGameKeyPressed = false; break;
-    case KEYCODE_DOWN:
-    case KEYCODE_UP:
-      players[myId].updown = 0; nonGameKeyPressed = false; break;
-  }
+  var player = players[myId];
+  var lastLeftright = player.leftright;
+  var lastUpdown = player.updown;
+  var nonGameKeyPressed = switchHandler(e, player);
 
-  if (!nonGameKeyPressed)
-    sendPlayerDataOnRealtimeRoute('iMove');
+  if (!nonGameKeyPressed && (lastLeftright != player.leftright || lastUpdown != player.updown))
+  {
+    sendDataOnRealtimeRoute('iMove');
+    lastHeartbeat = Date.now();
+  }
   return nonGameKeyPressed;
 }
 
-function sendPlayerDataOnRealtimeRoute(messsageRoute) {
+function sendDataOnRealtimeRoute(messsageRoute) {
   var data = {};
   data.room = "theRoom";
 
@@ -171,7 +192,7 @@ function joinRoom(data) {
   console.log(players[myId].sprite);
   console.log(myId);
 
-  sendPlayerDataOnRealtimeRoute('joinRoom');
+  sendDataOnRealtimeRoute('joinRoom');
   socket.on('youMove', setCharacterMovementFromSocket);
   socket.on('hasJoinedRoom', addNewPlayer);
 
