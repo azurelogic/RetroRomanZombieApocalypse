@@ -40,7 +40,8 @@ app.io.route('joinRoom', function(req) {
 })
 
 app.io.route('iMove', function(req) {
-  console.log("things are happening");
+  var asdf = Date.now();
+  console.log("Received from id: " + req.data.player.id + " at " + asdf);
   req.io.room(req.data.room).broadcast('youMove', req.data);
 })
 
