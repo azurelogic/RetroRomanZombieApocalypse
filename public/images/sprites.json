@@ -1,0 +1,63 @@
+{
+"images": ["sprites.png"],
+"frames": [
+
+    [0, 0, 80, 80], 
+    [80, 0, 80, 80], 
+    [160, 0, 80, 80], 
+    [240, 0, 80, 80], 
+    [320, 0, 80, 80], 
+    [0, 80, 80, 80], 
+    [80, 80, 80, 80], 
+    [160, 80, 80, 80], 
+    [240, 80, 80, 80], 
+    [320, 80, 80, 80], 
+    [0, 160, 80, 80], 
+    [80, 160, 80, 80], 
+    [160, 160, 80, 80], 
+    [240, 160, 80, 80], 
+    [320, 160, 80, 80], 
+    [0, 240, 80, 80], 
+    [80, 240, 80, 80], 
+    [160, 240, 80, 80], 
+    [240, 240, 80, 80], 
+    [320, 240, 80, 80], 
+    [0, 320, 80, 80], 
+    [80, 320, 80, 80], 
+    [160, 320, 80, 80], 
+    [240, 320, 80, 80], 
+    [320, 320, 80, 80]
+],
+"animations": {
+    
+        "bluegladiator0standing":[0], 
+        "bluegladiator1walk1":[1], 
+        "bluegladiator2walk2":[2], 
+        "bluegladiator3attack1":[3], 
+        "bluegladiator4attack2":[4], 
+        "greengladiator0standing":[5], 
+        "greengladiator1walk1":[6], 
+        "greengladiator2walk2":[7], 
+        "greengladiator3attack1":[8], 
+        "greengladiator4attack2":[9], 
+        "redgladiator0standing":[10], 
+        "redgladiator1walk1":[11], 
+        "redgladiator2walk2":[12], 
+        "redgladiator3attack1":[13], 
+        "redgladiator4attack2":[14], 
+        "yellowgladiator0standing":[15], 
+        "yellowgladiator1walk1":[16], 
+        "yellowgladiator2walk2":[17], 
+        "yellowgladiator3attack1":[18], 
+        "yellowgladiator4attack2":[19], 
+        "zombie0standing":[20], 
+        "zombie1walk1":[21], 
+        "zombie2walk2":[22], 
+        "zombie3attack1":[23], 
+        "zombie4attack2":[24]
+},
+"texturepacker": [
+        "SmartUpdateHash: $TexturePacker:SmartUpdate:85b80d7a58cc5ef6ff699aec3dd03f3a$",
+        "Created with TexturePacker (http://www.texturepacker.com) for EasalJS"
+]
+}

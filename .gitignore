@@ -1,3 +1,4 @@
 node_modules
 .idea
 *.css
+.DS_Store
