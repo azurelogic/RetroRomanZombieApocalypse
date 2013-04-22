@@ -4,13 +4,11 @@ var KEYCODE_UP = 38;
 var KEYCODE_LEFT = 37;
 var KEYCODE_RIGHT = 39;
 var KEYCODE_DOWN = 40;
-var KEYCODE_W = 87;
-var KEYCODE_A = 65;
-var KEYCODE_D = 68;
 
 var canvas;
 var stage;
-var characterImg;
+var spritesImage;
+var sprites;
 var players;
 var playerIds;
 var socket;
@@ -18,40 +16,141 @@ var myId;
 var lastTime;
 var lastHeartbeat;
 var playerVelocityFactor;
+var keyPressedDown;
+var keyPressedUp;
+var keyPressedLeft;
+var keyPressedRight;
+var keyPressedSpace;
 
 function Player(options) {
   this.self = this;
   this.id = options.id;
-  this.sprite = new createjs.Bitmap(characterImg);
+  this.sprite = new createjs.BitmapAnimation(sprites);
   this.sprite.x = options.x;
   this.sprite.y = options.y;
   this.updown = options.updown;
   this.leftright = options.leftright;
+  this.facingLeftright = this.leftright;
+  this.color = 'zombie';
+  this.justAttacked = false;
 
   stage.addChild(this.sprite);
   stage.update();
+
+  sprites.getAnimation(this.color + 'stand').next = this.color + 'stand';
+  this.sprite.gotoAndPlay(this.color + 'stand');
 }
 
-Player.prototype.updatePositionAndVelocity = function(options) {
-  this.sprite.x = options.x;
-  this.sprite.y = options.y;
-  this.updown = 0.8 * options.updown;
-  this.leftright = 0.8 * options.leftright;
-}
+Player.prototype.updatePositionAndVelocity = function (playerData) {
+  this.sprite.x = playerData.spritex;
+  this.sprite.y = playerData.spritey;
+  this.updown = 0.9 * playerData.updown;
+  this.leftright = 0.9 * playerData.leftright;
+  this.facingLeftright = playerData.facingLeftright;
+  if (playerData.justAttacked)
+    this.startAttackMotion();
+  else if (this.updown != 0 || this.leftright != 0)
+    this.handleLeftOrRightFacingAnimation('walk');
+  else
+    this.handleLeftOrRightFacingAnimation('stand');
+};
 
-Player.prototype.appendPlayerDataToMessage = function(data) {
+Player.prototype.appendPlayerDataToMessage = function (data) {
   data.player = {};
   data.player.id = this.id;
   data.player.leftright = this.leftright;
+  data.player.facingLeftright = this.facingLeftright;
   data.player.updown = this.updown;
   data.player.spritex = this.sprite.x;
   data.player.spritey = this.sprite.y;
-}
+  data.player.justAttacked = this.justAttacked;
+
+  this.justAttacked = false;
+};
 
 Player.prototype.move = function (deltaTime) {
-  this.sprite.x += Math.round(this.leftright * deltaTime * playerVelocityFactor);
-  this.sprite.y += Math.round(this.updown * deltaTime * playerVelocityFactor);
-}
+  if (this.updown == 0 || this.leftright == 0) {
+    this.sprite.x += Math.round(this.leftright * deltaTime * playerVelocityFactor);
+    this.sprite.y += Math.round(this.updown * deltaTime * playerVelocityFactor);
+  }
+  else {
+    this.sprite.x += Math.round(this.leftright * deltaTime * playerVelocityFactor * 0.707);
+    this.sprite.y += Math.round(this.updown * deltaTime * playerVelocityFactor * 0.707);
+  }
+};
+
+Player.prototype.handleLeftOrRightFacingAnimation = function (nextAnimationType, futureAnimationType) {
+  var nextAnimationName;
+  var futureAnimationName;
+  if (this.facingLeftright == 1) {
+    nextAnimationName = this.color + nextAnimationType + '_h';
+    futureAnimationName = this.color + futureAnimationType + '_h';
+  }
+  else {
+    nextAnimationName = this.color + nextAnimationType;
+    futureAnimationName = this.color + futureAnimationType;
+  }
+
+  if (futureAnimationType)
+    sprites.getAnimation(nextAnimationName).next = futureAnimationName;
+  else
+    sprites.getAnimation(nextAnimationName).next = nextAnimationName;
+
+  this.sprite.gotoAndPlay(nextAnimationName);
+};
+
+Player.prototype.startLeftMotion = function ()
+{
+  this.leftright = -1;
+  this.facingLeftright = this.leftright;
+  this.handleLeftOrRightFacingAnimation('walk');
+};
+
+Player.prototype.startRightMotion = function ()
+{
+  this.leftright = 1;
+  this.facingLeftright = this.leftright;
+  this.handleLeftOrRightFacingAnimation('walk');
+};
+
+Player.prototype.startUpMotion = function ()
+{
+  this.updown = -1;
+  this.handleLeftOrRightFacingAnimation('walk');
+};
+
+Player.prototype.startDownMotion = function ()
+{
+  this.updown = 1;
+  this.handleLeftOrRightFacingAnimation('walk');
+};
+
+Player.prototype.startAttackMotion = function () {
+  this.updown = 0;
+  this.leftright = 0;
+  this.handleLeftOrRightFacingAnimation('attack', 'stand');
+};
+
+Player.prototype.stopLeftRightMotion = function ()
+{
+  if (this.leftright != 0)
+    this.facingLeftright = this.leftright;
+
+  this.leftright = 0;
+  if (this.updown != 0)
+    this.handleLeftOrRightFacingAnimation('walk');
+  else
+    this.handleLeftOrRightFacingAnimation('stand');
+};
+
+Player.prototype.stopUpDownMotion = function ()
+{
+  this.updown = 0;
+  if (this.leftright != 0)
+    this.handleLeftOrRightFacingAnimation('walk');
+  else
+    this.handleLeftOrRightFacingAnimation('stand');
+};
 
 function init() {
   console.log("starting init");
@@ -66,17 +165,68 @@ function init() {
   console.log(canvas);
   stage = new createjs.Stage(canvas);
 
-  characterImg = new Image();
-  characterImg.onload = handleImageLoad;
-  characterImg.src = "/images/rocket.png";
+  spritesImage = new Image();
+  spritesImage.onload = handleImageLoad;
+  spritesImage.src = "/images/sprites.png";
   console.log("init complete");
 }
 
 function handleImageLoad() {
   console.log("image loaded");
 
+  var spriteData = {
+    images: ["images/sprites.png"],
+    frames: [
+
+      [0, 0, 80, 80, 0, 40, 0],
+      [80, 0, 80, 80, 0, 40, 0],
+      [160, 0, 80, 80, 0, 40, 0],
+      [240, 0, 80, 80, 0, 40, 0],
+      [320, 0, 80, 80, 0, 40, 0],
+      [0, 80, 80, 80, 0, 40, 0],
+      [80, 80, 80, 80, 0, 40, 0],
+      [160, 80, 80, 80, 0, 40, 0],
+      [240, 80, 80, 80, 0, 40, 0],
+      [320, 80, 80, 80, 0, 40, 0],
+      [0, 160, 80, 80, 0, 40, 0],
+      [80, 160, 80, 80, 0, 40, 0],
+      [160, 160, 80, 80, 0, 40, 0],
+      [240, 160, 80, 80, 0, 40, 0],
+      [320, 160, 80, 80, 0, 40, 0],
+      [0, 240, 80, 80, 0, 40, 0],
+      [80, 240, 80, 80, 0, 40, 0],
+      [160, 240, 80, 80, 0, 40, 0],
+      [240, 240, 80, 80, 0, 40, 0],
+      [320, 240, 80, 80, 0, 40, 0],
+      [0, 320, 80, 80, 0, 40, 0],
+      [80, 320, 80, 80, 0, 40, 0],
+      [160, 320, 80, 80, 0, 40, 0],
+      [240, 320, 80, 80, 0, 40, 0],
+      [320, 320, 80, 80, 0, 40, 0]
+    ],
+    animations: {
+      bluestand: 0,
+      bluewalk: { frames: [1,0,2,0], frequency: 6 } ,
+      blueattack: { frames: [0,3,4,3,0], frequency: 6 },
+      greenstand: 5,
+      greenwalk: { frames: [6,5,7,5], frequency: 6 },
+      greenattack: { frames: [5,8,9,8,5], frequency: 6 },
+      redstand: 10,
+      redwalk: { frames: [11,10,12,10], frequency: 6 },
+      redattack: { frames: [10,13,14,13,10], frequency: 6 },
+      yellowstand: 15,
+      yellowwalk: { frames: [16,15,17,15], frequency: 6 },
+      yellowattack: { frames: [15,18,19,18,15], frequency: 6 },
+      zombiestand: 20,
+      zombiewalk: { frames: [21,20,22,20], frequency: 6 },
+      zombieattack: { frames: [20,23,24,23,20], frequency: 6 }
+    }
+  };
+
+  sprites = new createjs.SpriteSheet(spriteData);
+
   socket = io.connect();
-  socket.on('setId', joinRoom)
+  socket.on('setId', joinRoom);
   socket.emit('getId');
 }
 
@@ -89,8 +239,7 @@ function tick() {
     players[playerIds[id]].move(deltaTime);
 
   //heartbeat every 500 ms
-  if (now - lastHeartbeat > 500)
-  {
+  if (now - lastHeartbeat > 500) {
     sendDataOnRealtimeRoute('iMove');
     lastHeartbeat = now;
   }
@@ -99,35 +248,79 @@ function tick() {
   lastTime = now;
 }
 
-function handleKeyDown(e){
-  return handleKeySignals(e , function (e, player) {
+function handleKeyDown(e) {
+  return handleKeySignals(e, function (e, player) {
     var nonGameKeyPressed = true;
-    switch(e.keyCode)
-    {
+    switch (e.keyCode) {
       case KEYCODE_LEFT:
-        player.leftright = -1; nonGameKeyPressed = false; break;
+        if (!keyPressedLeft) {
+          keyPressedLeft = true;
+          player.startLeftMotion();
+        }
+        nonGameKeyPressed = false;
+        break;
       case KEYCODE_RIGHT:
-        player.leftright = 1; nonGameKeyPressed = false; break;
+        if (!keyPressedRight) {
+          keyPressedRight = true;
+          player.startRightMotion();
+        }
+        nonGameKeyPressed = false;
+        break;
       case KEYCODE_DOWN:
-        player.updown = 1; nonGameKeyPressed = false; break;
+        if (!keyPressedDown) {
+          keyPressedDown = true;
+          player.startDownMotion();
+        }
+        nonGameKeyPressed = false;
+        break;
       case  KEYCODE_UP:
-        player.updown = -1; nonGameKeyPressed = false; break;
+        if (!keyPressedUp) {
+          keyPressedUp = true;
+          player.startUpMotion();
+        }
+        nonGameKeyPressed = false;
+        break;
+      case KEYCODE_SPACE:
+        if (!keyPressedSpace)
+        {
+          player.justAttacked = true;
+          keyPressedSpace = true;
+          player.startAttackMotion();
+        }
+        nonGameKeyPressed = false;
+        break;
     }
     return nonGameKeyPressed;
   });
 }
 
-function handleKeyUp(e){
-  return handleKeySignals(e , function (e, player) {
+function handleKeyUp(e) {
+  return handleKeySignals(e, function (e, player) {
     var nonGameKeyPressed = true;
-    switch(e.keyCode)
-    {
+    switch (e.keyCode) {
       case KEYCODE_LEFT:
+        keyPressedLeft = false;
+        player.stopLeftRightMotion();
+        nonGameKeyPressed = false;
       case KEYCODE_RIGHT:
-        player.leftright = 0; nonGameKeyPressed = false; break;
+        keyPressedRight = false;
+        player.stopLeftRightMotion();
+        nonGameKeyPressed = false;
+        break;
       case KEYCODE_DOWN:
+        keyPressedDown = false;
+        player.stopUpDownMotion();
+        nonGameKeyPressed = false;
       case KEYCODE_UP:
-        player.updown = 0; nonGameKeyPressed = false; break;
+        keyPressedUp = false;
+        player.stopUpDownMotion();
+        nonGameKeyPressed = false;
+        break;
+      case KEYCODE_SPACE:
+        keyPressedSpace = false;
+        //player.setKeyUpOnAttack();
+        nonGameKeyPressed = false;
+        break;
     }
     return nonGameKeyPressed;
   });
@@ -135,14 +328,13 @@ function handleKeyUp(e){
 
 function handleKeySignals(e, switchHandler) {
   if (!e)
-    var e = window.event;
+    e = window.event;
   var player = players[myId];
   var lastLeftright = player.leftright;
   var lastUpdown = player.updown;
   var nonGameKeyPressed = switchHandler(e, player);
 
-  if (!nonGameKeyPressed && (lastLeftright != player.leftright || lastUpdown != player.updown))
-  {
+  if (!nonGameKeyPressed && (lastLeftright != player.leftright || lastUpdown != player.updown || player.justAttacked)) {
     sendDataOnRealtimeRoute('iMove');
     lastHeartbeat = Date.now();
   }
@@ -154,7 +346,7 @@ function sendDataOnRealtimeRoute(messsageRoute) {
   data.room = "theRoom";
 
   players[myId].appendPlayerDataToMessage(data);
-  
+
   socket.emit(messsageRoute, data);
 }
 
@@ -162,24 +354,17 @@ function setCharacterMovementFromSocket(data) {
   console.log("receiving data");
 
   if (players[data.player.id])
-  {
-    players[data.player.id].updatePositionAndVelocity({
-      x: data.player.spritex,
-      y: data.player.spritey,
-      updown: data.player.updown,
-      leftright: data.player.leftright
-    })
-  }
+    players[data.player.id].updatePositionAndVelocity(data.player);
   else
-  {
     addNewPlayer(data);
-  }
 }
 
 function joinRoom(data) {
   myId = data.player.id;
 
   playerIds.push(myId);
+
+  createjs.SpriteSheetUtils.addFlippedFrames(sprites, true, true, false);
 
   players[myId] = new Player({
     id: myId,
@@ -195,6 +380,12 @@ function joinRoom(data) {
   sendDataOnRealtimeRoute('joinRoom');
   socket.on('youMove', setCharacterMovementFromSocket);
   socket.on('hasJoinedRoom', addNewPlayer);
+
+  keyPressedDown = false;
+  keyPressedUp = false;
+  keyPressedLeft = false;
+  keyPressedRight = false;
+  keyPressedSpace = false;
 
   document.onkeydown = handleKeyDown;
   document.onkeyup = handleKeyUp;
@@ -214,7 +405,8 @@ function addNewPlayer(data) {
     x: data.player.spritex,
     y: data.player.spritey,
     updown: data.player.updown,
-    leftright: data.player.leftright
+    leftright: data.player.leftright,
+    facingLeftright: data.player.facingLeftright
   });
   console.log(players[data.player.id].sprite);
 }
