@@ -22,7 +22,7 @@ var keyPressedLeft;
 var keyPressedRight;
 var keyPressedSpace;
 
-function Player(options) {
+var Character = function (options) {
   this.self = this;
   this.id = options.id;
   this.sprite = new createjs.BitmapAnimation(sprites);
@@ -41,7 +41,7 @@ function Player(options) {
   this.sprite.gotoAndPlay(this.color + 'stand');
 }
 
-Player.prototype.updatePositionAndVelocity = function (playerData) {
+Character.prototype.updatePositionAndVelocity = function (playerData) {
   this.sprite.x = playerData.spritex;
   this.sprite.y = playerData.spritey;
   this.updown = 0.9 * playerData.updown;
@@ -55,20 +55,8 @@ Player.prototype.updatePositionAndVelocity = function (playerData) {
     this.handleLeftOrRightFacingAnimation('stand');
 };
 
-Player.prototype.appendPlayerDataToMessage = function (data) {
-  data.player = {};
-  data.player.id = this.id;
-  data.player.leftright = this.leftright;
-  data.player.facingLeftright = this.facingLeftright;
-  data.player.updown = this.updown;
-  data.player.spritex = this.sprite.x;
-  data.player.spritey = this.sprite.y;
-  data.player.justAttacked = this.justAttacked;
 
-  this.justAttacked = false;
-};
-
-Player.prototype.move = function (deltaTime) {
+Character.prototype.move = function (deltaTime) {
   if (this.updown == 0 || this.leftright == 0) {
     this.sprite.x += Math.round(this.leftright * deltaTime * playerVelocityFactor);
     this.sprite.y += Math.round(this.updown * deltaTime * playerVelocityFactor);
@@ -79,7 +67,7 @@ Player.prototype.move = function (deltaTime) {
   }
 };
 
-Player.prototype.handleLeftOrRightFacingAnimation = function (nextAnimationType, futureAnimationType) {
+Character.prototype.handleLeftOrRightFacingAnimation = function (nextAnimationType, futureAnimationType) {
   var nextAnimationName;
   var futureAnimationName;
   if (this.facingLeftright == 1) {
@@ -99,39 +87,39 @@ Player.prototype.handleLeftOrRightFacingAnimation = function (nextAnimationType,
   this.sprite.gotoAndPlay(nextAnimationName);
 };
 
-Player.prototype.startLeftMotion = function ()
+Character.prototype.startLeftMotion = function ()
 {
   this.leftright = -1;
   this.facingLeftright = this.leftright;
   this.handleLeftOrRightFacingAnimation('walk');
 };
 
-Player.prototype.startRightMotion = function ()
+Character.prototype.startRightMotion = function ()
 {
   this.leftright = 1;
   this.facingLeftright = this.leftright;
   this.handleLeftOrRightFacingAnimation('walk');
 };
 
-Player.prototype.startUpMotion = function ()
+Character.prototype.startUpMotion = function ()
 {
   this.updown = -1;
   this.handleLeftOrRightFacingAnimation('walk');
 };
 
-Player.prototype.startDownMotion = function ()
+Character.prototype.startDownMotion = function ()
 {
   this.updown = 1;
   this.handleLeftOrRightFacingAnimation('walk');
 };
 
-Player.prototype.startAttackMotion = function () {
+Character.prototype.startAttackMotion = function () {
   this.updown = 0;
   this.leftright = 0;
   this.handleLeftOrRightFacingAnimation('attack', 'stand');
 };
 
-Player.prototype.stopLeftRightMotion = function ()
+Character.prototype.stopLeftRightMotion = function ()
 {
   if (this.leftright != 0)
     this.facingLeftright = this.leftright;
@@ -143,13 +131,35 @@ Player.prototype.stopLeftRightMotion = function ()
     this.handleLeftOrRightFacingAnimation('stand');
 };
 
-Player.prototype.stopUpDownMotion = function ()
+Character.prototype.stopUpDownMotion = function ()
 {
   this.updown = 0;
   if (this.leftright != 0)
     this.handleLeftOrRightFacingAnimation('walk');
   else
     this.handleLeftOrRightFacingAnimation('stand');
+};
+
+var Player = function (options) {
+
+  //todo modify the options object for color, etc before calling the super constructor!!!!!!!!!!!!!!!!!!
+
+  Character.call(this, options);
+};
+
+Player.prototype = Object.create(Character.prototype);
+
+Player.prototype.appendPlayerDataToMessage = function (data) {
+  data.player = {};
+  data.player.id = this.id;
+  data.player.leftright = this.leftright;
+  data.player.facingLeftright = this.facingLeftright;
+  data.player.updown = this.updown;
+  data.player.spritex = this.sprite.x;
+  data.player.spritey = this.sprite.y;
+  data.player.justAttacked = this.justAttacked;
+
+  this.justAttacked = false;
 };
 
 function init() {
@@ -237,6 +247,8 @@ function tick() {
   // move all of the characters
   for (var id = 0; id < playerIds.length; id++)
     players[playerIds[id]].move(deltaTime);
+
+  //todo sort characters by depth layer!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   //heartbeat every 500 ms
   if (now - lastHeartbeat > 500) {
@@ -366,6 +378,7 @@ function joinRoom(data) {
 
   createjs.SpriteSheetUtils.addFlippedFrames(sprites, true, true, false);
 
+  //todo this might work better as a players.push(...)
   players[myId] = new Player({
     id: myId,
     x: canvas.width / 2,
