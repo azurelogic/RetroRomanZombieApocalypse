@@ -144,8 +144,8 @@ Player.prototype.appendDataToMessage = function (data) {
 };
 
 var Zombie = function (options) {
-  Character.call(this. options);
-  this.color = 'zombie';
+  options.color = 'zombie';
+  Character.call(this, options);
   this.ownerId = options.ownerId;
 };
 

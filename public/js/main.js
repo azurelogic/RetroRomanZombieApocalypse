@@ -14,7 +14,9 @@ var colors;
 var socket;
 var myId;
 var lastTime;
-var lastHeartbeat;
+var lastHeartbeatTime;
+var enemyInterval;
+var lastEnemyTime;
 var keyPressedDown;
 var keyPressedUp;
 var keyPressedLeft;
@@ -25,7 +27,9 @@ function init() {
   console.log("starting init");
 
   lastTime = 0;
-  lastHeartbeat = 0;
+  lastHeartbeatTime = 0;
+  lastEnemyTime = 0;
+  enemyInterval = 1000;
 
   characters = [];
   canvas = document.getElementById("gameCanvas");
@@ -117,10 +121,16 @@ function tick() {
   for (var i = 0; i < sortedCharacters.length; i++)
     stage.addChild(sortedCharacters[i].sprite);
 
+  if (now - lastEnemyTime > enemyInterval) {
+    generateZombie();
+    enemyInterval = Math.floor(Math.random()*1000) + 1000;
+    lastEnemyTime = now;
+  }
+
   //heartbeat every 500 ms
-  if (now - lastHeartbeat > 500) {
+  if (now - lastHeartbeatTime > 500) {
     sendDataOnRealtimeRoute('iMove');
-    lastHeartbeat = now;
+    lastHeartbeatTime = now;
   }
 
   stage.update();
@@ -217,7 +227,7 @@ function handleKeySignals(e, switchHandler) {
 
   if (!nonGameKeyPressed && (lastLeftright != player.leftright || lastUpdown != player.updown || player.justAttacked)) {
     sendDataOnRealtimeRoute('iMove');
-    lastHeartbeat = Date.now();
+    lastHeartbeatTime = Date.now();
   }
   return nonGameKeyPressed;
 }
@@ -229,7 +239,7 @@ function sendDataOnRealtimeRoute(messsageRoute) {
 
   _.find(characters, {id: myId}).appendDataToMessage(data);
 
-  var zombies = _.where(characters, {ownerId: myId})
+  var zombies = _.where(characters, {ownerId: myId});
   for (var i = 0; i < zombies.length; i++)
     zombies[i].appendDataToMessage(data);
 
@@ -249,8 +259,8 @@ function setCharacterMovementFromSocket(data) {
   var zombieDataList = _.where(data.chars, {ownerId: data.playerId});
   for (var i = 0; i < zombieDataList.length; i++)
   {
-    var zombieFound = _.find(characters, {id: zombieDataList[i].id})
-    var zombieData = _.find(data.chars, {id: zombieDataList[i].id})
+    var zombieFound = _.find(characters, {id: zombieDataList[i].id});
+    var zombieData = _.find(data.chars, {id: zombieDataList[i].id});
 
     if (zombieFound && zombieData)
       zombieFound.updatePositionAndVelocity(zombieData);
@@ -336,4 +346,16 @@ function pickNewPlayerColor() {
     colorIndex = (colorIndex + 1) % colors.length;
   }
   return result;
+}
+
+function generateZombie() {
+  addNewZombie({
+    id: uuid.v4(),
+    spritex: Math.floor(Math.random()*400),
+    spritey: Math.floor(Math.random()*400),
+    updown: 0,
+    leftright: 0,
+    facingLeftright: 1,
+    ownerId: myId
+  });
 }
