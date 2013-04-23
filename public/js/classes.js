@@ -120,7 +120,6 @@ Character.prototype.stopUpDownMotion = function ()
 
 var Player = function (options) {
   Character.call(this, options);
-  //todo modify the options object for color, etc
 };
 
 Player.prototype = Object.create(Character.prototype);

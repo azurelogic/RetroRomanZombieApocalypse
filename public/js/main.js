@@ -112,7 +112,10 @@ function tick() {
     if (characters[id])
       characters[id].move(deltaTime);
 
-  //todo sort characters by depth layer!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  var sortedCharacters = _.sortBy(characters, function (character) { return character.sprite.y;});
+  stage.removeAllChildren();
+  for (var i = 0; i < sortedCharacters.length; i++)
+    stage.addChild(sortedCharacters[i].sprite);
 
   //heartbeat every 500 ms
   if (now - lastHeartbeat > 500) {
@@ -275,7 +278,7 @@ function joinRoom(data) {
 
   sendDataOnRealtimeRoute('joinRoom');
   socket.on('youMove', setCharacterMovementFromSocket);
-  socket.on('hasJoinedRoom', addNewPlayer);
+  //socket.on('hasJoinedRoom', addNewPlayer);
 
   keyPressedDown = false;
   keyPressedUp = false;
@@ -320,12 +323,17 @@ function addNewZombie(characterData) {
 
 function pickNewPlayerColor() {
   var colorIndex = Math.floor(Math.random()*4);
+  var result = false;
   for (var i = 0; i < colors.length; i++)
   {
     if (colors[colorIndex].unused)
-      return colors[colorIndex].color;
+    {
+      result = colors[colorIndex].color;
+      colors[colorIndex].unused = false;
+      break;
+    }
 
     colorIndex = (colorIndex + 1) % colors.length;
   }
-  return false;
+  return result;
 }

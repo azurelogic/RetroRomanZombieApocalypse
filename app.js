@@ -35,7 +35,6 @@ app.io.route('getId', function(req){
 
 app.io.route('joinRoom', function(req) {
   req.io.join(req.data.room);
-  req.io.room(req.data.room).broadcast('hasJoinedRoom', req.data);
 })
 
 app.io.route('iMove', function(req) {
