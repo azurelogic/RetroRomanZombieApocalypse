@@ -8,172 +8,35 @@ var KEYCODE_DOWN = 40;
 var canvas;
 var stage;
 var spritesImage;
-var sprites;
-var players;
-var playerIds;
+var spriteSheet;
+var characters;
+var colors;
 var socket;
 var myId;
 var lastTime;
 var lastHeartbeat;
-var playerVelocityFactor;
 var keyPressedDown;
 var keyPressedUp;
 var keyPressedLeft;
 var keyPressedRight;
 var keyPressedSpace;
 
-var Character = function (options) {
-  this.self = this;
-  this.id = options.id;
-  this.sprite = new createjs.BitmapAnimation(sprites);
-  this.sprite.x = options.x;
-  this.sprite.y = options.y;
-  this.updown = options.updown;
-  this.leftright = options.leftright;
-  this.facingLeftright = this.leftright;
-  this.color = 'zombie';
-  this.justAttacked = false;
-
-  stage.addChild(this.sprite);
-  stage.update();
-
-  sprites.getAnimation(this.color + 'stand').next = this.color + 'stand';
-  this.sprite.gotoAndPlay(this.color + 'stand');
-}
-
-Character.prototype.updatePositionAndVelocity = function (playerData) {
-  this.sprite.x = playerData.spritex;
-  this.sprite.y = playerData.spritey;
-  this.updown = 0.9 * playerData.updown;
-  this.leftright = 0.9 * playerData.leftright;
-  this.facingLeftright = playerData.facingLeftright;
-  if (playerData.justAttacked)
-    this.startAttackMotion();
-  else if (this.updown != 0 || this.leftright != 0)
-    this.handleLeftOrRightFacingAnimation('walk');
-  else
-    this.handleLeftOrRightFacingAnimation('stand');
-};
-
-
-Character.prototype.move = function (deltaTime) {
-  if (this.updown == 0 || this.leftright == 0) {
-    this.sprite.x += Math.round(this.leftright * deltaTime * playerVelocityFactor);
-    this.sprite.y += Math.round(this.updown * deltaTime * playerVelocityFactor);
-  }
-  else {
-    this.sprite.x += Math.round(this.leftright * deltaTime * playerVelocityFactor * 0.707);
-    this.sprite.y += Math.round(this.updown * deltaTime * playerVelocityFactor * 0.707);
-  }
-};
-
-Character.prototype.handleLeftOrRightFacingAnimation = function (nextAnimationType, futureAnimationType) {
-  var nextAnimationName;
-  var futureAnimationName;
-  if (this.facingLeftright == 1) {
-    nextAnimationName = this.color + nextAnimationType + '_h';
-    futureAnimationName = this.color + futureAnimationType + '_h';
-  }
-  else {
-    nextAnimationName = this.color + nextAnimationType;
-    futureAnimationName = this.color + futureAnimationType;
-  }
-
-  if (futureAnimationType)
-    sprites.getAnimation(nextAnimationName).next = futureAnimationName;
-  else
-    sprites.getAnimation(nextAnimationName).next = nextAnimationName;
-
-  this.sprite.gotoAndPlay(nextAnimationName);
-};
-
-Character.prototype.startLeftMotion = function ()
-{
-  this.leftright = -1;
-  this.facingLeftright = this.leftright;
-  this.handleLeftOrRightFacingAnimation('walk');
-};
-
-Character.prototype.startRightMotion = function ()
-{
-  this.leftright = 1;
-  this.facingLeftright = this.leftright;
-  this.handleLeftOrRightFacingAnimation('walk');
-};
-
-Character.prototype.startUpMotion = function ()
-{
-  this.updown = -1;
-  this.handleLeftOrRightFacingAnimation('walk');
-};
-
-Character.prototype.startDownMotion = function ()
-{
-  this.updown = 1;
-  this.handleLeftOrRightFacingAnimation('walk');
-};
-
-Character.prototype.startAttackMotion = function () {
-  this.updown = 0;
-  this.leftright = 0;
-  this.handleLeftOrRightFacingAnimation('attack', 'stand');
-};
-
-Character.prototype.stopLeftRightMotion = function ()
-{
-  if (this.leftright != 0)
-    this.facingLeftright = this.leftright;
-
-  this.leftright = 0;
-  if (this.updown != 0)
-    this.handleLeftOrRightFacingAnimation('walk');
-  else
-    this.handleLeftOrRightFacingAnimation('stand');
-};
-
-Character.prototype.stopUpDownMotion = function ()
-{
-  this.updown = 0;
-  if (this.leftright != 0)
-    this.handleLeftOrRightFacingAnimation('walk');
-  else
-    this.handleLeftOrRightFacingAnimation('stand');
-};
-
-var Player = function (options) {
-
-  //todo modify the options object for color, etc before calling the super constructor!!!!!!!!!!!!!!!!!!
-
-  Character.call(this, options);
-};
-
-Player.prototype = Object.create(Character.prototype);
-
-Player.prototype.appendPlayerDataToMessage = function (data) {
-  data.player = {};
-  data.player.id = this.id;
-  data.player.leftright = this.leftright;
-  data.player.facingLeftright = this.facingLeftright;
-  data.player.updown = this.updown;
-  data.player.spritex = this.sprite.x;
-  data.player.spritey = this.sprite.y;
-  data.player.justAttacked = this.justAttacked;
-
-  this.justAttacked = false;
-};
-
 function init() {
   console.log("starting init");
 
   lastTime = 0;
   lastHeartbeat = 0;
-  playerVelocityFactor = 50;
 
-  players = [];
-  playerIds = [];
+  characters = [];
   canvas = document.getElementById("gameCanvas");
   console.log(canvas);
   stage = new createjs.Stage(canvas);
+
+  colors = [];
+  colors.push({color: 'red', unused: true});
+  colors.push({color: 'green', unused: true});
+  colors.push({color: 'blue', unused: true});
+  colors.push({color: 'yellow', unused: true});
 
   spritesImage = new Image();
   spritesImage.onload = handleImageLoad;
@@ -233,7 +96,7 @@ function handleImageLoad() {
     }
   };
 
-  sprites = new createjs.SpriteSheet(spriteData);
+  spriteSheet = new createjs.SpriteSheet(spriteData);
 
   socket = io.connect();
   socket.on('setId', joinRoom);
@@ -245,8 +108,9 @@ function tick() {
   var deltaTime = (now - lastTime) / 1000;
 
   // move all of the characters
-  for (var id = 0; id < playerIds.length; id++)
-    players[playerIds[id]].move(deltaTime);
+  for (var id = 0; id < characters.length; id++)
+    if (characters[id])
+      characters[id].move(deltaTime);
 
   //todo sort characters by depth layer!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -314,6 +178,7 @@ function handleKeyUp(e) {
         keyPressedLeft = false;
         player.stopLeftRightMotion();
         nonGameKeyPressed = false;
+        break;
       case KEYCODE_RIGHT:
         keyPressedRight = false;
         player.stopLeftRightMotion();
@@ -323,6 +188,7 @@ function handleKeyUp(e) {
         keyPressedDown = false;
         player.stopUpDownMotion();
         nonGameKeyPressed = false;
+        break;
       case KEYCODE_UP:
         keyPressedUp = false;
         player.stopUpDownMotion();
@@ -341,7 +207,7 @@ function handleKeyUp(e) {
 function handleKeySignals(e, switchHandler) {
   if (!e)
     e = window.event;
-  var player = players[myId];
+  var player = _.find(characters, {id: myId});
   var lastLeftright = player.leftright;
   var lastUpdown = player.updown;
   var nonGameKeyPressed = switchHandler(e, player);
@@ -356,8 +222,13 @@ function handleKeySignals(e, switchHandler) {
 function sendDataOnRealtimeRoute(messsageRoute) {
   var data = {};
   data.room = "theRoom";
+  data.playerId = myId;
 
-  players[myId].appendPlayerDataToMessage(data);
+  _.find(characters, {id: myId}).appendDataToMessage(data);
+
+  var zombies = _.where(characters, {ownerId: myId})
+  for (var i = 0; i < zombies.length; i++)
+    zombies[i].appendDataToMessage(data);
 
   socket.emit(messsageRoute, data);
 }
@@ -365,29 +236,41 @@ function sendDataOnRealtimeRoute(messsageRoute) {
 function setCharacterMovementFromSocket(data) {
   console.log("receiving data");
 
-  if (players[data.player.id])
-    players[data.player.id].updatePositionAndVelocity(data.player);
+  var playerFound = _.find(characters, {id: data.playerId});
+  var playerData = _.find(data.chars, {id: data.playerId});
+  if (playerFound && playerData)
+    playerFound.updatePositionAndVelocity(playerData);
   else
-    addNewPlayer(data);
+    addNewPlayer(playerData);
+
+  var zombieDataList = _.where(data.chars, {ownerId: data.playerId});
+  for (var i = 0; i < zombieDataList.length; i++)
+  {
+    var zombieFound = _.find(characters, {id: zombieDataList[i].id})
+    var zombieData = _.find(data.chars, {id: zombieDataList[i].id})
+
+    if (zombieFound && zombieData)
+      zombieFound.updatePositionAndVelocity(zombieData);
+    else
+      addNewZombie(zombieData);
+  }
+
 }
 
 function joinRoom(data) {
-  myId = data.player.id;
+  myId = data.playerId;
 
-  playerIds.push(myId);
+  createjs.SpriteSheetUtils.addFlippedFrames(spriteSheet, true, true, false);
 
-  createjs.SpriteSheetUtils.addFlippedFrames(sprites, true, true, false);
-
-  //todo this might work better as a players.push(...)
-  players[myId] = new Player({
+  characters.push(new Player({
     id: myId,
     x: canvas.width / 2,
     y: canvas.height / 2,
     updown: 0,
-    leftright: 0
-  });
+    leftright: 0,
+    color: pickNewPlayerColor()
+  }));
 
-  console.log(players[myId].sprite);
   console.log(myId);
 
   sendDataOnRealtimeRoute('joinRoom');
@@ -410,16 +293,39 @@ function joinRoom(data) {
   }
 }
 
-function addNewPlayer(data) {
-  playerIds.push(data.player.id);
+function addNewPlayer(characterData) {
+  characters.push(new Player({
+    id: characterData.id,
+    x: characterData.spritex,
+    y: characterData.spritey,
+    updown: characterData.updown,
+    leftright: characterData.leftright,
+    facingLeftright: characterData.facingLeftright,
+    color: pickNewPlayerColor()
+  }));
+}
 
-  players[data.player.id] = new Player({
-    id: data.player.id,
-    x: data.player.spritex,
-    y: data.player.spritey,
-    updown: data.player.updown,
-    leftright: data.player.leftright,
-    facingLeftright: data.player.facingLeftright
-  });
-  console.log(players[data.player.id].sprite);
+function addNewZombie(characterData) {
+  characters.push(new Zombie({
+    id: characterData.id,
+    x: characterData.spritex,
+    y: characterData.spritey,
+    updown: characterData.updown,
+    leftright: characterData.leftright,
+    facingLeftright: characterData.facingLeftright,
+    ownerId: characterData.ownerId,
+    color: 'zombie'
+  }));
+}
+
+function pickNewPlayerColor() {
+  var colorIndex = Math.floor(Math.random()*4);
+  for (var i = 0; i < colors.length; i++)
+  {
+    if (colors[colorIndex].unused)
+      return colors[colorIndex].color;
+
+    colorIndex = (colorIndex + 1) % colors.length;
+  }
+  return false;
 }

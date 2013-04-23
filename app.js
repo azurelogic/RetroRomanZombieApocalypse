@@ -28,9 +28,8 @@ app.io.route('disconnect', function(){
 
 app.io.route('getId', function(req){
   var data = {};
-  data.player = {};
-  data.player.id = uuid.v4();
-  console.log(data.player.id);
+  data.playerId = uuid.v4();
+  console.log(data.playerId);
   req.io.emit('setId', data);
 })
 
@@ -41,7 +40,7 @@ app.io.route('joinRoom', function(req) {
 
 app.io.route('iMove', function(req) {
   var asdf = Date.now();
-  console.log("Received from id: " + req.data.player.id + " at " + asdf);
+  console.log("Received from id: " + req.data.playerId + " at " + asdf);
   req.io.room(req.data.room).broadcast('youMove', req.data);
 })
 
