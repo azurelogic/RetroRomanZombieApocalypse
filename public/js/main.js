@@ -15,6 +15,7 @@ var socket;
 var myId;
 var lastTime;
 var lastHeartbeatTime;
+var lastPlayerLockTime;
 var enemyInterval;
 var lastEnemyTime;
 var keyPressedDown;
@@ -29,6 +30,7 @@ function init() {
   lastTime = 0;
   lastHeartbeatTime = 0;
   lastEnemyTime = 0;
+  lastPlayerLockTime = 0;
   enemyInterval = 1000;
 
   characters = [];
@@ -83,20 +85,20 @@ function handleImageLoad() {
     ],
     animations: {
       bluestand: 0,
-      bluewalk: { frames: [1,0,2,0], frequency: 6 } ,
-      blueattack: { frames: [0,3,4,3,0], frequency: 6 },
+      bluewalk: { frames: [1, 0, 2, 0], frequency: 6 },
+      blueattack: { frames: [0, 3, 4, 3, 0], frequency: 6 },
       greenstand: 5,
-      greenwalk: { frames: [6,5,7,5], frequency: 6 },
-      greenattack: { frames: [5,8,9,8,5], frequency: 6 },
+      greenwalk: { frames: [6, 5, 7, 5], frequency: 6 },
+      greenattack: { frames: [5, 8, 9, 8, 5], frequency: 6 },
       redstand: 10,
-      redwalk: { frames: [11,10,12,10], frequency: 6 },
-      redattack: { frames: [10,13,14,13,10], frequency: 6 },
+      redwalk: { frames: [11, 10, 12, 10], frequency: 6 },
+      redattack: { frames: [10, 13, 14, 13, 10], frequency: 6 },
       yellowstand: 15,
-      yellowwalk: { frames: [16,15,17,15], frequency: 6 },
-      yellowattack: { frames: [15,18,19,18,15], frequency: 6 },
+      yellowwalk: { frames: [16, 15, 17, 15], frequency: 6 },
+      yellowattack: { frames: [15, 18, 19, 18, 15], frequency: 6 },
       zombiestand: 20,
-      zombiewalk: { frames: [21,20,22,20], frequency: 6 },
-      zombieattack: { frames: [20,23,24,23,20], frequency: 6 }
+      zombiewalk: { frames: [21, 20, 22, 20], frequency: 6 },
+      zombieattack: { frames: [20, 23, 24, 23, 20], frequency: 6 }
     }
   };
 
@@ -107,25 +109,74 @@ function handleImageLoad() {
   socket.emit('getId');
 }
 
+function joinRoom(data) {
+  myId = data.playerId;
+
+  createjs.SpriteSheetUtils.addFlippedFrames(spriteSheet, true, true, false);
+
+  addNewPlayer({
+    id: myId,
+    spritex: canvas.width / 2,
+    spritey: canvas.height / 2,
+    updown: 0,
+    leftright: 0,
+    facingLeftright: -1
+  });
+
+  console.log(myId);
+
+  sendDataOnRealtimeRoute('joinRoom');
+  socket.on('youMove', setCharacterMovementFromSocket);
+
+  keyPressedDown = false;
+  keyPressedUp = false;
+  keyPressedLeft = false;
+  keyPressedRight = false;
+  keyPressedSpace = false;
+
+  document.onkeydown = handleKeyDown;
+  document.onkeyup = handleKeyUp;
+
+  createjs.Ticker.useRAF = true;
+  createjs.Ticker.setFPS(60);
+  if (!createjs.Ticker.hasEventListener("tick")) {
+    createjs.Ticker.addEventListener("tick", tick);
+  }
+}
+
 function tick() {
   var now = Date.now();
   var deltaTime = (now - lastTime) / 1000;
+
+  // generate enemies
+  if (now - lastEnemyTime > enemyInterval) {
+    generateZombie();
+    enemyInterval = Math.floor(Math.random() * 1000) + 2000;
+    lastEnemyTime = now;
+  }
+
+  var zombies = _.where(characters, {ownerId: myId});
+
+  // establish player targeting
+  if (now - lastPlayerLockTime > 200) {
+    for (var i = 0; i < zombies.length; i++) {
+      zombies[i].lockOnPlayer();
+      zombies[i].establishDirection();
+    }
+  }
 
   // move all of the characters
   for (var id = 0; id < characters.length; id++)
     if (characters[id])
       characters[id].move(deltaTime);
 
-  var sortedCharacters = _.sortBy(characters, function (character) { return character.sprite.y;});
+  // sort depth layers
+  var sortedCharacters = _.sortBy(characters, function (character) {
+    return character.sprite.y;
+  });
   stage.removeAllChildren();
   for (var i = 0; i < sortedCharacters.length; i++)
     stage.addChild(sortedCharacters[i].sprite);
-
-  if (now - lastEnemyTime > enemyInterval) {
-    generateZombie();
-    enemyInterval = Math.floor(Math.random()*1000) + 1000;
-    lastEnemyTime = now;
-  }
 
   //heartbeat every 500 ms
   if (now - lastHeartbeatTime > 500) {
@@ -170,8 +221,7 @@ function handleKeyDown(e) {
         nonGameKeyPressed = false;
         break;
       case KEYCODE_SPACE:
-        if (!keyPressedSpace)
-        {
+        if (!keyPressedSpace) {
           player.justAttacked = true;
           keyPressedSpace = true;
           player.startAttackMotion();
@@ -257,8 +307,7 @@ function setCharacterMovementFromSocket(data) {
     addNewPlayer(playerData);
 
   var zombieDataList = _.where(data.chars, {ownerId: data.playerId});
-  for (var i = 0; i < zombieDataList.length; i++)
-  {
+  for (var i = 0; i < zombieDataList.length; i++) {
     var zombieFound = _.find(characters, {id: zombieDataList[i].id});
     var zombieData = _.find(data.chars, {id: zombieDataList[i].id});
 
@@ -270,42 +319,6 @@ function setCharacterMovementFromSocket(data) {
 
 }
 
-function joinRoom(data) {
-  myId = data.playerId;
-
-  createjs.SpriteSheetUtils.addFlippedFrames(spriteSheet, true, true, false);
-
-  characters.push(new Player({
-    id: myId,
-    x: canvas.width / 2,
-    y: canvas.height / 2,
-    updown: 0,
-    leftright: 0,
-    color: pickNewPlayerColor()
-  }));
-
-  console.log(myId);
-
-  sendDataOnRealtimeRoute('joinRoom');
-  socket.on('youMove', setCharacterMovementFromSocket);
-  //socket.on('hasJoinedRoom', addNewPlayer);
-
-  keyPressedDown = false;
-  keyPressedUp = false;
-  keyPressedLeft = false;
-  keyPressedRight = false;
-  keyPressedSpace = false;
-
-  document.onkeydown = handleKeyDown;
-  document.onkeyup = handleKeyUp;
-
-  createjs.Ticker.useRAF = true;
-  createjs.Ticker.setFPS(60);
-  if (!createjs.Ticker.hasEventListener("tick")) {
-    createjs.Ticker.addEventListener("tick", tick);
-  }
-}
-
 function addNewPlayer(characterData) {
   characters.push(new Player({
     id: characterData.id,
@@ -314,8 +327,24 @@ function addNewPlayer(characterData) {
     updown: characterData.updown,
     leftright: characterData.leftright,
     facingLeftright: characterData.facingLeftright,
-    color: pickNewPlayerColor()
+    color: pickNewPlayerColor(),
+    characterType: 'player'
   }));
+}
+
+function pickNewPlayerColor() {
+  var colorIndex = Math.floor(Math.random() * 4);
+  var result = false;
+  for (var i = 0; i < colors.length; i++) {
+    if (colors[colorIndex].unused) {
+      result = colors[colorIndex].color;
+      colors[colorIndex].unused = false;
+      break;
+    }
+
+    colorIndex = (colorIndex + 1) % colors.length;
+  }
+  return result;
 }
 
 function addNewZombie(characterData) {
@@ -327,35 +356,21 @@ function addNewZombie(characterData) {
     leftright: characterData.leftright,
     facingLeftright: characterData.facingLeftright,
     ownerId: characterData.ownerId,
-    color: 'zombie'
+    color: 'zombie',
+    characterType: 'zombie',
+    targetId: characterData.targetId
   }));
-}
-
-function pickNewPlayerColor() {
-  var colorIndex = Math.floor(Math.random()*4);
-  var result = false;
-  for (var i = 0; i < colors.length; i++)
-  {
-    if (colors[colorIndex].unused)
-    {
-      result = colors[colorIndex].color;
-      colors[colorIndex].unused = false;
-      break;
-    }
-
-    colorIndex = (colorIndex + 1) % colors.length;
-  }
-  return result;
 }
 
 function generateZombie() {
   addNewZombie({
     id: uuid.v4(),
-    spritex: Math.floor(Math.random()*400),
-    spritey: Math.floor(Math.random()*400),
+    spritex: Math.floor(Math.random() * 400),
+    spritey: Math.floor(Math.random() * 400),
     updown: 0,
     leftright: 0,
     facingLeftright: 1,
-    ownerId: myId
+    ownerId: myId,
+    targetId: myId
   });
 }
