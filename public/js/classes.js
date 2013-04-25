@@ -11,7 +11,7 @@ var Character = function (options) {
   this.characterType = options.characterType;
   this.justAttacked = false;
   this.velocityFactor = .08;
-  this.damageRadius = 70;
+  this.damageRadius = 60;
   this.damageRadiusSquared = this.damageRadius*this.damageRadius;
   this.damageRating = 50;
   this.health = 100;
@@ -132,9 +132,19 @@ var Player = function (options) {
   Character.call(this, options);
 };
 
-Character.prototype.takeDamage = function (damageAmount) {
+Character.prototype.takeDamage = function (damageAmount, attacker) {
   this.health -= damageAmount;
-  console.log(this.characterType + " " + this.id + " took " + damageAmount + " damage; " + this.health + " remaining...");
+
+  if (this.health <= 0)
+    this.die(attacker);
+};
+
+Character.prototype.die = function (attacker) {
+  //need to track what has died
+  //need to send messages about death
+
+  var self = this;
+  characters = _.filter(characters, function (character) { return character.id != self.id; });
 };
 
 Player.prototype = Object.create(Character.prototype);
