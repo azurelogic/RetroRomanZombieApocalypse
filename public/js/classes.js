@@ -10,24 +10,32 @@ var Character = function (options) {
   this.color = options.color;
   this.characterType = options.characterType;
   this.justAttacked = false;
-  this.velocityFactor = 50;
-
+  this.velocityFactor = .08;
+  this.damageRadius = 70;
+  this.damageRadiusSquared = this.damageRadius*this.damageRadius;
+  this.damageRating = 50;
+  this.health = 100;
 
   stage.addChild(this.sprite);
   stage.update();
 
   spriteSheet.getAnimation(this.color + 'stand').next = this.color + 'stand';
-  this.handleLeftOrRightFacingAnimation('stand');
+  spriteSheet.getAnimation(this.color + 'stand_h').next = this.color + 'stand_h';
+  spriteSheet.getAnimation(this.color + 'walk').next = this.color + 'walk';
+  spriteSheet.getAnimation(this.color + 'walk_h').next = this.color + 'walk_h';
+  spriteSheet.getAnimation(this.color + 'attack').next = this.color + 'stand';
+  spriteSheet.getAnimation(this.color + 'attack_h').next = this.color + 'stand_h';
+  this.sprite.gotoAndPlay(this.getAnimationNameFor('stand'));
 };
 
 Character.prototype.move = function (deltaTime) {
   if (this.updown == 0 || this.leftright == 0) {
-    this.sprite.x += Math.round(this.leftright * deltaTime * this.velocityFactor);
-    this.sprite.y += Math.round(this.updown * deltaTime * this.velocityFactor);
+    this.sprite.x += this.leftright * deltaTime * this.velocityFactor;
+    this.sprite.y += this.updown * deltaTime * this.velocityFactor;
   }
   else {
-    this.sprite.x += Math.round(this.leftright * deltaTime * this.velocityFactor * 0.707);
-    this.sprite.y += Math.round(this.updown * deltaTime * this.velocityFactor * 0.707);
+    this.sprite.x += this.leftright * deltaTime * this.velocityFactor * 0.70711;
+    this.sprite.y += this.updown * deltaTime * this.velocityFactor * 0.70711;
   }
 };
 
@@ -38,59 +46,40 @@ Character.prototype.updatePositionAndVelocity = function (characterData) {
   this.leftright = 0.9 * characterData.leftright;
   this.facingLeftright = characterData.facingLeftright;
   if (characterData.justAttacked)
-    this.startAttackMotion();
+    this.handleAttackOn();
   else if (this.updown != 0 || this.leftright != 0)
-    this.handleLeftOrRightFacingAnimation('walk');
+    this.sprite.gotoAndPlay(this.getAnimationNameFor('walk'));
   else
-    this.handleLeftOrRightFacingAnimation('stand');
+    this.sprite.gotoAndPlay(this.getAnimationNameFor('stand'));
 };
 
-Character.prototype.handleLeftOrRightFacingAnimation = function (nextAnimationType, futureAnimationType) {
-  var nextAnimationName;
-  var futureAnimationName;
-  if (this.facingLeftright == 1) {
-    nextAnimationName = this.color + nextAnimationType + '_h';
-    futureAnimationName = this.color + futureAnimationType + '_h';
-  }
-  else {
-    nextAnimationName = this.color + nextAnimationType;
-    futureAnimationName = this.color + futureAnimationType;
-  }
-
-  if (futureAnimationType)
-    spriteSheet.getAnimation(nextAnimationName).next = futureAnimationName;
-  else
-    spriteSheet.getAnimation(nextAnimationName).next = nextAnimationName;
-
-  this.sprite.gotoAndPlay(nextAnimationName);
+Character.prototype.getAnimationNameFor = function (animationType) {
+  if (this.facingLeftright == 1) 
+    return this.color + animationType + '_h';
+  else 
+    return this.color + animationType;
 };
 
 Character.prototype.startLeftMotion = function () {
   this.leftright = -1;
   this.facingLeftright = this.leftright;
-  this.handleLeftOrRightFacingAnimation('walk');
+  this.sprite.gotoAndPlay(this.getAnimationNameFor('walk'));
 };
 
 Character.prototype.startRightMotion = function () {
   this.leftright = 1;
   this.facingLeftright = this.leftright;
-  this.handleLeftOrRightFacingAnimation('walk');
+  this.sprite.gotoAndPlay(this.getAnimationNameFor('walk'));
 };
 
 Character.prototype.startUpMotion = function () {
   this.updown = -1;
-  this.handleLeftOrRightFacingAnimation('walk');
+  this.sprite.gotoAndPlay(this.getAnimationNameFor('walk'));
 };
 
 Character.prototype.startDownMotion = function () {
   this.updown = 1;
-  this.handleLeftOrRightFacingAnimation('walk');
-};
-
-Character.prototype.startAttackMotion = function () {
-  this.updown = 0;
-  this.leftright = 0;
-  this.handleLeftOrRightFacingAnimation('attack', 'stand');
+  this.sprite.gotoAndPlay(this.getAnimationNameFor('walk'));
 };
 
 Character.prototype.stopLeftRightMotion = function () {
@@ -99,21 +88,53 @@ Character.prototype.stopLeftRightMotion = function () {
 
   this.leftright = 0;
   if (this.updown != 0)
-    this.handleLeftOrRightFacingAnimation('walk');
+    this.sprite.gotoAndPlay(this.getAnimationNameFor('walk'));
   else
-    this.handleLeftOrRightFacingAnimation('stand');
+    this.sprite.gotoAndPlay(this.getAnimationNameFor('stand'));
 };
 
 Character.prototype.stopUpDownMotion = function () {
   this.updown = 0;
   if (this.leftright != 0)
-    this.handleLeftOrRightFacingAnimation('walk');
+    this.sprite.gotoAndPlay(this.getAnimationNameFor('walk'));
   else
-    this.handleLeftOrRightFacingAnimation('stand');
+    this.sprite.gotoAndPlay(this.getAnimationNameFor('stand'));
+};
+
+Character.prototype.handleAttackOn = function (enemyType) {
+  this.startAttackMotion();
+
+  var opposingForces = _.where(characters, {characterType: enemyType});
+
+  for (var i = 0; i < opposingForces.length; i++)
+  {
+    if (opposingForces[i].sprite.x > this.sprite.x + this.damageRadius ||
+      opposingForces[i].sprite.x < this.sprite.x - this.damageRadius ||
+      opposingForces[i].sprite.y > this.sprite.y + this.damageRadius ||
+      opposingForces[i].sprite.y < this.sprite.y - this.damageRadius)
+      continue;
+
+    var x = this.sprite.x - opposingForces[i].sprite.x;
+    var y = this.sprite.y - opposingForces[i].sprite.y;
+    if (x*x + y*y < this.damageRadiusSquared &&
+      (opposingForces[i].sprite.x - this.sprite.x) * this.facingLeftright > 0)
+      opposingForces[i].takeDamage(this.damageRating);
+  }
+};
+
+Character.prototype.startAttackMotion = function () {
+  this.updown = 0;
+  this.leftright = 0;
+  this.sprite.gotoAndPlay(this.getAnimationNameFor('attack'));
 };
 
 var Player = function (options) {
   Character.call(this, options);
+};
+
+Character.prototype.takeDamage = function (damageAmount) {
+  this.health -= damageAmount;
+  console.log(this.characterType + " " + this.id + " took " + damageAmount + " damage; " + this.health + " remaining...");
 };
 
 Player.prototype = Object.create(Character.prototype);
@@ -140,6 +161,8 @@ var Zombie = function (options) {
   Character.call(this, options);
   this.ownerId = options.ownerId;
   this.targetId = options.targetId;
+  this.velocityFactor = .05;
+  this.damageRating = 10;
 };
 
 Zombie.prototype = Object.create(Character.prototype);
@@ -165,12 +188,13 @@ Zombie.prototype.lockOnPlayer = function () {
   var self = this;
   var players = _.where(characters, {characterType: 'player'});
   var playerMaps = _.map(players, function (player) {
+    var x = self.sprite.x - player.sprite.x;
+    var y = self.sprite.y - player.sprite.y;
     return {id: player.id,
-      distance: self.sprite.x * self.sprite.x
-        + player.sprite.x * player.sprite.x};
+      distanceSquared: x*x + y*y};
   });
   this.targetId = _.min(playerMaps,function (playerMap) {
-    return playerMap.distance;
+    return playerMap.distanceSquared;
   }).id;
 };
 
@@ -179,29 +203,37 @@ Zombie.prototype.establishDirection = function () {
 
   var absoluteSlope = Math.abs((targetPlayer.sprite.y - this.sprite.y) / (targetPlayer.sprite.x - this.sprite.x));
 
+  var updown = 0;
+  var leftright = 0;
+
   if (absoluteSlope > 0.414)
-    this.updown = 1;
-  else
-    this.updown = 0;
+    updown = 1;
 
   if (absoluteSlope < 2.414)
-    this.leftright = 1;
-  else
-    this.leftright = 0;
+    leftright = 1;
 
   if (targetPlayer.sprite.y < this.sprite.y)
-    this.updown *= -1;
+    updown *= -1;
 
   if (targetPlayer.sprite.x < this.sprite.x)
-    this.leftright *= -1;
+    leftright *= -1;
 
-  //todo fix the issue where this thing loops the walk animation too fast
-
-  //move this to attack function or something
   if (this.justAttacked)
-    this.startAttackMotion();
-  else if (this.updown != 0 || this.leftright != 0)
-    this.handleLeftOrRightFacingAnimation('walk');
-  else
-    this.handleLeftOrRightFacingAnimation('stand');
+  {
+    this.handleAttackOn('player');
+    return;
+  }
+
+  if (leftright != 0)
+    this.facingLeftright = leftright;
+
+  if (updown != this.updown || leftright != this.leftright) {
+    this.updown = updown;
+    this.leftright = leftright;
+
+    if (this.updown != 0 || this.leftright != 0)
+      this.sprite.gotoAndPlay(this.getAnimationNameFor('walk'));
+    else
+      this.sprite.gotoAndPlay(this.getAnimationNameFor('stand'));
+  }
 };

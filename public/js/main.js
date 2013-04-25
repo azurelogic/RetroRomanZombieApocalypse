@@ -146,7 +146,7 @@ function joinRoom(data) {
 
 function tick() {
   var now = Date.now();
-  var deltaTime = (now - lastTime) / 1000;
+  var deltaTime = now - lastTime;
 
   // generate enemies
   if (now - lastEnemyTime > enemyInterval) {
@@ -158,7 +158,7 @@ function tick() {
   var zombies = _.where(characters, {ownerId: myId});
 
   // establish player targeting
-  if (now - lastPlayerLockTime > 200) {
+  if (now - lastPlayerLockTime > 50) {
     for (var i = 0; i < zombies.length; i++) {
       zombies[i].lockOnPlayer();
       zombies[i].establishDirection();
@@ -224,7 +224,7 @@ function handleKeyDown(e) {
         if (!keyPressedSpace) {
           player.justAttacked = true;
           keyPressedSpace = true;
-          player.startAttackMotion();
+          player.handleAttackOn('zombie');
         }
         nonGameKeyPressed = false;
         break;
