@@ -47,7 +47,7 @@ app.io.route('iMove', function(req) {
 
 // path routes
 app.get('/', function(req, res){
-  res.render('index', { title: 'Express' });
+  res.render('index', { title: 'Retro Colosseum Zombie Apocalypse' });
 });
 //app.get('/', routes.index);
 
