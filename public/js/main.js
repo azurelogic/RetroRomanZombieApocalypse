@@ -10,12 +10,15 @@ var stage;
 var spritesImage;
 var spriteSheet;
 var characters;
+var deadCharacterIds;
 var colors;
 var socket;
 var myId;
 var lastTime;
 var lastHeartbeatTime;
+var lastAttackTime;
 var lastPlayerLockTime;
+var lastDeadCharacterPurgeTime;
 var enemyInterval;
 var lastEnemyTime;
 var keyPressedDown;
@@ -23,26 +26,32 @@ var keyPressedUp;
 var keyPressedLeft;
 var keyPressedRight;
 var keyPressedSpace;
+var viewModel;
 
 function init() {
   console.log("starting init");
 
-  lastTime = 0;
-  lastHeartbeatTime = 0;
-  lastEnemyTime = 0;
-  lastPlayerLockTime = 0;
-  enemyInterval = 1000;
-
-  characters = [];
   canvas = document.getElementById("gameCanvas");
-  console.log(canvas);
   stage = new createjs.Stage(canvas);
 
-  colors = [];
-  colors.push({color: 'red', unused: true});
-  colors.push({color: 'green', unused: true});
-  colors.push({color: 'blue', unused: true});
-  colors.push({color: 'yellow', unused: true});
+  var viewModelMaker = function () {
+    var self = this;
+    self.points = ko.observable();
+    self.health = ko.observable();
+    self.gameStarted = ko.observable();
+    self.awardPoints = function (points) {
+      self.points(self.points() + points);
+    };
+    self.newGameReset = function () {
+      self.points(0);
+      self.health(100);
+      self.gameStarted(false);
+    };
+  }
+
+  viewModel = new viewModelMaker();
+
+  ko.applyBindings(viewModel);
 
   spritesImage = new Image();
   spritesImage.onload = handleImageLoad;
@@ -112,6 +121,26 @@ function handleImageLoad() {
 function joinRoom(data) {
   myId = data.playerId;
 
+  lastTime = 0;
+  lastHeartbeatTime = 0;
+  lastAttackTime = 0;
+  lastEnemyTime = 0;
+  lastPlayerLockTime = 0;
+  lastDeadCharacterPurgeTime = 0;
+  enemyInterval = 1000;
+
+  characters = [];
+  deadCharacterIds = [];
+
+  stage.removeAllChildren();
+  stage.removeAllEventListeners();
+
+  colors = [];
+  colors.push({color: 'red', unused: true});
+  colors.push({color: 'green', unused: true});
+  colors.push({color: 'blue', unused: true});
+  colors.push({color: 'yellow', unused: true});
+
   createjs.SpriteSheetUtils.addFlippedFrames(spriteSheet, true, true, false);
 
   addNewPlayer({
@@ -122,6 +151,9 @@ function joinRoom(data) {
     leftright: 0,
     facingLeftright: -1
   });
+
+  viewModel.newGameReset();
+  viewModel.gameStarted(true);
 
   console.log(myId);
 
@@ -157,18 +189,32 @@ function tick() {
 
   var zombies = _.where(characters, {ownerId: myId});
 
-  // establish player targeting
+  // establish targeting and attacks by enemies
   if (now - lastPlayerLockTime > 50) {
     for (var i = 0; i < zombies.length; i++) {
       zombies[i].lockOnPlayer();
+
+      if (now - lastAttackTime > 1000)
+      {
+        zombies[i].attemptAttack();
+        if (i == zombies.length - 1)
+          lastAttackTime = now;
+      }
+
       zombies[i].establishDirection();
+      lastPlayerLockTime = now;
     }
   }
 
   // move all of the characters
   for (var id = 0; id < characters.length; id++)
-    if (characters[id])
+    if (characters[id]) {
       characters[id].move(deltaTime);
+
+      // remove characters that are out of health
+      if (characters[id].health <= 0)
+        characters[id].die();
+    }
 
   // sort depth layers
   var sortedCharacters = _.sortBy(characters, function (character) {
@@ -182,6 +228,14 @@ function tick() {
   if (now - lastHeartbeatTime > 500) {
     sendDataOnRealtimeRoute('iMove');
     lastHeartbeatTime = now;
+  }
+
+  if (now - lastDeadCharacterPurgeTime > 10000)
+  {
+    deadCharacterIds = _.filter(deadCharacterIds, function (id) {
+      now - id.time > 10000;
+    });
+    lastDeadCharacterPurgeTime = now;
   }
 
   stage.update();
@@ -286,12 +340,20 @@ function sendDataOnRealtimeRoute(messsageRoute) {
   var data = {};
   data.room = "theRoom";
   data.playerId = myId;
+  data.chars = [];
 
   _.find(characters, {id: myId}).appendDataToMessage(data);
 
   var zombies = _.where(characters, {ownerId: myId});
   for (var i = 0; i < zombies.length; i++)
     zombies[i].appendDataToMessage(data);
+
+  data.damaged = [];
+
+
+  var zombies = _.where(characters, {damaged: true});
+  for (var i = 0; i < zombies.length; i++)
+    zombies[i].appendDamagedDataToMessage(data);
 
   socket.emit(messsageRoute, data);
 }
@@ -303,7 +365,7 @@ function setCharacterMovementFromSocket(data) {
   var playerData = _.find(data.chars, {id: data.playerId});
   if (playerFound && playerData)
     playerFound.updatePositionAndVelocity(playerData);
-  else
+  else if (!_.any(deadCharacterIds, {id: data.playerId}))
     addNewPlayer(playerData);
 
   var zombieDataList = _.where(data.chars, {ownerId: data.playerId});
@@ -313,10 +375,18 @@ function setCharacterMovementFromSocket(data) {
 
     if (zombieFound && zombieData)
       zombieFound.updatePositionAndVelocity(zombieData);
-    else
+    else if (!_.any(deadCharacterIds, {id: zombieDataList[i].id}))
       addNewZombie(zombieData);
   }
 
+  var damagedZombieDataList = _.where(data.damaged, {ownerId: myId});
+  for (var i = 0; i < damagedZombieDataList.length; i++) {
+    var zombieFound = _.find(characters, {id: damagedZombieDataList[i].id});
+    var zombieData = _.find(data.damaged, {id: damagedZombieDataList[i].id});
+
+    if (zombieFound && zombieData)
+      zombieFound.takeDamage(zombieData.damage);
+  }
 }
 
 function addNewPlayer(characterData) {
@@ -328,7 +398,8 @@ function addNewPlayer(characterData) {
     leftright: characterData.leftright,
     facingLeftright: characterData.facingLeftright,
     color: pickNewPlayerColor(),
-    characterType: 'player'
+    characterType: 'player',
+    health: 100
   }));
 }
 
@@ -358,19 +429,32 @@ function addNewZombie(characterData) {
     ownerId: characterData.ownerId,
     color: 'zombie',
     characterType: 'zombie',
-    targetId: characterData.targetId
+    targetId: characterData.targetId,
+    health: 100
   }));
 }
 
 function generateZombie() {
+  var x
+  if (dieRoll(2))
+    x = -50;
+  else
+    x = 550;
+
   addNewZombie({
     id: uuid.v4(),
-    spritex: Math.floor(Math.random() * 400),
-    spritey: Math.floor(Math.random() * 400),
+    spritex: x,
+    spritey: Math.floor(Math.random() * 300) + 200,
     updown: 0,
     leftright: 0,
     facingLeftright: 1,
     ownerId: myId,
     targetId: myId
   });
+};
+
+function dieRoll (numberOfSides) {
+  if (Math.floor(Math.random() * numberOfSides) == 1)
+    return true;
+  return false;
 }

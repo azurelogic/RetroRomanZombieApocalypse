@@ -5,12 +5,18 @@ block scripts
   script(type="text/javascript",src="/socket.io/socket.io.js")
   script(type="text/javascript",src="/js/easeljs-0.6.0.min.js")
   script(type="text/javascript",src="/js/lodash.js")
+  script(type="text/javascript",src="/js/uuid.js")
+  script(type="text/javascript",src="/js/knockout-2.2.1.js")
   script(type="text/javascript",src="/js/classes.js")
   script(type="text/javascript",src="/js/main.js")
-  script(type="text/javascript",src="/js/uuid.js")
 
 
 block content
   body(onload="init();")
     #gameContainer
       canvas#gameCanvas(width=500,height=500) no canvas support
+      #gameData(data-bind="visible: gameStarted")
+          h2 Health:
+          span(data-bind="text: health")
+          h2 Score:
+          span(data-bind="text: points")

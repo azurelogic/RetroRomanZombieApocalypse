@@ -1,5 +1,4 @@
 var Character = function (options) {
-  this.self = this;
   this.id = options.id;
   this.sprite = new createjs.BitmapAnimation(spriteSheet);
   this.sprite.x = options.x;
@@ -12,9 +11,10 @@ var Character = function (options) {
   this.justAttacked = false;
   this.velocityFactor = .08;
   this.damageRadius = 60;
-  this.damageRadiusSquared = this.damageRadius*this.damageRadius;
+  this.damageRadiusSquared = function () {return this.damageRadius*this.damageRadius};
   this.damageRating = 50;
-  this.health = 100;
+  this.health = options.health;
+  this.killedBy = null;
 
   stage.addChild(this.sprite);
   stage.update();
@@ -45,6 +45,7 @@ Character.prototype.updatePositionAndVelocity = function (characterData) {
   this.updown = 0.9 * characterData.updown;
   this.leftright = 0.9 * characterData.leftright;
   this.facingLeftright = characterData.facingLeftright;
+  this.health = characterData.health;
   if (characterData.justAttacked)
     this.handleAttackOn();
   else if (this.updown != 0 || this.leftright != 0)
@@ -116,9 +117,9 @@ Character.prototype.handleAttackOn = function (enemyType) {
 
     var x = this.sprite.x - opposingForces[i].sprite.x;
     var y = this.sprite.y - opposingForces[i].sprite.y;
-    if (x*x + y*y < this.damageRadiusSquared &&
-      (opposingForces[i].sprite.x - this.sprite.x) * this.facingLeftright > 0)
-      opposingForces[i].takeDamage(this.damageRating);
+    if (x*x + y*y <= this.damageRadiusSquared() &&
+      (opposingForces[i].sprite.x - this.sprite.x) * this.facingLeftright >= 0)
+      opposingForces[i].takeDamage(this.damageRating, this);
   }
 };
 
@@ -135,24 +136,34 @@ var Player = function (options) {
 Character.prototype.takeDamage = function (damageAmount, attacker) {
   this.health -= damageAmount;
 
+  if (this.characterType == 'zombie')
+  {
+    this.damaged = true;
+    this.damageTaken += damageAmount;
+  }
+
   if (this.health <= 0)
-    this.die(attacker);
+  {
+    deadCharacterIds.push({id: this.id, time: Date.now()});
+    if (attacker)
+      this.killedBy = attacker.id;
+  }
+
+  if (this.id == myId)
+    viewModel.health(this.health);
 };
 
-Character.prototype.die = function (attacker) {
-  //need to track what has died
-  //need to send messages about death
+Character.prototype.die = function () {
+  if (this.killedBy == myId)
+    viewModel.awardPoints(50);
 
-  var self = this;
-  characters = _.filter(characters, function (character) { return character.id != self.id; });
+  stage.removeChild(this);
+  characters = _.filter(characters, function (character) { return character.id != this.id; }, this);
 };
 
 Player.prototype = Object.create(Character.prototype);
 
 Player.prototype.appendDataToMessage = function (data) {
-  if (!data.chars)
-    data.chars = [];
-
   data.chars.push({
     id: this.id,
     leftright: this.leftright,
@@ -173,14 +184,14 @@ var Zombie = function (options) {
   this.targetId = options.targetId;
   this.velocityFactor = .05;
   this.damageRating = 10;
+  this.damaged = false;
+  this.damageTaken = 0;
+  this.damageRadius = 60;
 };
 
 Zombie.prototype = Object.create(Character.prototype);
 
 Zombie.prototype.appendDataToMessage = function (data) {
-  if (!data.chars)
-    data.chars = [];
-
   data.chars.push({
     id: this.id,
     leftright: this.leftright,
@@ -190,19 +201,21 @@ Zombie.prototype.appendDataToMessage = function (data) {
     spritey: this.sprite.y,
     justAttacked: this.justAttacked,
     ownerId: this.ownerId,
-    targetId: this.targetId
+    targetId: this.targetId,
+    health: this.health
   });
+
+  this.justAttacked = false;
 };
 
 Zombie.prototype.lockOnPlayer = function () {
-  var self = this;
   var players = _.where(characters, {characterType: 'player'});
   var playerMaps = _.map(players, function (player) {
-    var x = self.sprite.x - player.sprite.x;
-    var y = self.sprite.y - player.sprite.y;
+    var x = this.sprite.x - player.sprite.x;
+    var y = this.sprite.y - player.sprite.y;
     return {id: player.id,
       distanceSquared: x*x + y*y};
-  });
+  }, this);
   this.targetId = _.min(playerMaps,function (playerMap) {
     return playerMap.distanceSquared;
   }).id;
@@ -228,12 +241,6 @@ Zombie.prototype.establishDirection = function () {
   if (targetPlayer.sprite.x < this.sprite.x)
     leftright *= -1;
 
-  if (this.justAttacked)
-  {
-    this.handleAttackOn('player');
-    return;
-  }
-
   if (leftright != 0)
     this.facingLeftright = leftright;
 
@@ -241,9 +248,28 @@ Zombie.prototype.establishDirection = function () {
     this.updown = updown;
     this.leftright = leftright;
 
+    if (this.justAttacked)
+    {
+      this.handleAttackOn('player');
+      return;
+    }
+
     if (this.updown != 0 || this.leftright != 0)
       this.sprite.gotoAndPlay(this.getAnimationNameFor('walk'));
     else
       this.sprite.gotoAndPlay(this.getAnimationNameFor('stand'));
   }
 };
+
+Zombie.prototype.appendDamagedDataToMessage = function (data) {
+  data.damaged.push({
+    id: this.id,
+    ownerId: this.ownerId,
+    damage: this.damageTaken
+  })
+};
+
+Zombie.prototype.attemptAttack = function () {
+  if (dieRoll(6))
+    this.justAttacked = true;
+}
