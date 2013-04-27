@@ -13,10 +13,30 @@ block scripts
 
 block content
   body(onload="init();")
-    #gameContainer
+    #roomContainer(data-bind="visible: !gameStarted()")
+      #gameData
+        #totalRooms
+          h3 Total # of rooms:&nbsp;
+            span(data-bind="text: totalRooms")
+        #availableRooms
+          h3 # of rooms available:&nbsp;
+            span(data-bind="text: rooms().length")
+        #playersInRooms
+          h3 # of players in game:&nbsp;
+            span(data-bind="text: playersInRooms")
+        button(data-bind="click: $root.getRoomUpdate") Refresh Rooms
+      #roomList(data-bind="foreach: rooms")
+        .room(data-bind="click: $root.joinRoom")
+          .roomId
+            span Room ID:
+            span(data-bind="text: roomId")
+          .playerCount
+            span # of players:
+            span(data-bind="text: playerCount")
+    #gameContainer(data-bind="visible: gameStarted")
       canvas#gameCanvas(width=500,height=500) no canvas support
-      #gameData(data-bind="visible: gameStarted")
+      #gameData
           h2 Health:
-          span(data-bind="text: health")
+          h1(data-bind="text: health")
           h2 Score:
-          span(data-bind="text: points")
+          h1(data-bind="text: points")

@@ -40,8 +40,23 @@ function init() {
     self.health = ko.observable();
     self.gameStarted = ko.observable();
 
+    self.totalRooms = ko.observable();
+    self.playersInRooms = ko.observable();
+
     self.rooms = ko.observableArray();
-    self.currentRoom = ko.observable();
+    self.currentRoomId = ko.observable();
+
+    // this initiates room join with server
+    self.joinRoom = function (room) {
+      var data = {};
+      data.playerId = myId;
+      data.roomId = room.roomId;
+      socket.emit('joinRoom', data);
+    };
+
+    self.getRoomUpdate = function () {
+      socket.emit('getRooms');
+    };
 
     self.awardPoints = function (points) {
       self.points(self.points() + points);
@@ -57,6 +72,15 @@ function init() {
 
   ko.applyBindings(viewModel);
 
+  socket = io.connect();
+  socket.on('connectionReply', loadRooms);
+  socket.on('roomJoined', startGame);
+  socket.on('updatedRoomList', updateRooms);
+  socket.on('connectionRefused', viewModel.getRoomUpdate);
+  socket.on('clientReceive', setCharacterMovementFromSocket);
+  socket.on('playerDisconnected', handlePlayerDisconnect);
+  socket.emit('playerConnect');
+
   spritesImage = new Image();
   spritesImage.onload = handleImageLoad;
   spritesImage.src = "/images/sprites.png";
@@ -64,6 +88,23 @@ function init() {
   //todo load the background image!!!
 
   console.log("init complete");
+}
+
+function loadRooms(data) {
+  myId = data.playerId;
+  updateRooms(data);
+}
+
+function updateRooms(data) {
+  viewModel.totalRooms(data.totalRooms);
+  viewModel.playersInRooms(data.playersInRooms);
+  viewModel.rooms(data.rooms);
+}
+
+function handlePlayerDisconnect (data) {
+  console.log(data.playerId);
+
+  //trigger player death
 }
 
 function handleImageLoad() {
@@ -119,14 +160,10 @@ function handleImageLoad() {
   };
 
   spriteSheet = new createjs.SpriteSheet(spriteData);
-
-  socket = io.connect();
-  socket.on('setId', joinRoom);
-  socket.emit('getId');
 }
 
-function joinRoom(data) {
-  myId = data.playerId;
+function startGame(data) {
+  viewModel.currentRoomId(data.roomId);
 
   lastTime = 0;
   lastHeartbeatTime = 0;
@@ -164,8 +201,7 @@ function joinRoom(data) {
 
   console.log(myId);
 
-  sendDataOnRealtimeRoute('joinRoom');
-  socket.on('youMove', setCharacterMovementFromSocket);
+
 
   keyPressedDown = false;
   keyPressedUp = false;
@@ -189,7 +225,7 @@ function tick() {
 
   // generate enemies
   if (now - lastEnemyTime > enemyInterval) {
-    generateZombie();
+    //generateZombie();
     enemyInterval = Math.floor(Math.random() * 1000) + 2000;
     lastEnemyTime = now;
   }
@@ -232,7 +268,7 @@ function tick() {
 
   //heartbeat every 500 ms
   if (now - lastHeartbeatTime > 500) {
-    sendDataOnRealtimeRoute('iMove');
+    sendGameDataOnRealtimeRoute('clientSend');
     lastHeartbeatTime = now;
   }
 
@@ -335,15 +371,15 @@ function handleKeySignals(e, switchHandler) {
   var nonGameKeyPressed = switchHandler(e, player);
 
   if (!nonGameKeyPressed && (lastLeftright != player.leftright || lastUpdown != player.updown || player.justAttacked)) {
-    sendDataOnRealtimeRoute('iMove');
+    sendGameDataOnRealtimeRoute('clientSend');
     lastHeartbeatTime = Date.now();
   }
   return nonGameKeyPressed;
 }
 
-function sendDataOnRealtimeRoute(messsageRoute) {
+function sendGameDataOnRealtimeRoute(messsageRoute) {
   var data = {};
-  data.room = "theRoom";
+  data.roomId = viewModel.currentRoomId();
   data.playerId = myId;
   data.chars = [];
 
