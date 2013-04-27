@@ -10,6 +10,7 @@
     "less-middleware": "*",
     "mongoose": "*",
     "express.io": "*",
-    "node-uuid": "*"
+    "node-uuid": "*",
+    "lodash": "*"
   }
 }
