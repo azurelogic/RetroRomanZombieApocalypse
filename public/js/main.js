@@ -1,4 +1,3 @@
-var KEYCODE_ENTER = 13;
 var KEYCODE_SPACE = 32;
 var KEYCODE_UP = 38;
 var KEYCODE_LEFT = 37;
@@ -36,9 +35,14 @@ function init() {
 
   var viewModelMaker = function () {
     var self = this;
+
     self.points = ko.observable();
     self.health = ko.observable();
     self.gameStarted = ko.observable();
+
+    self.rooms = ko.observableArray();
+    self.currentRoom = ko.observable();
+
     self.awardPoints = function (points) {
       self.points(self.points() + points);
     };
@@ -47,7 +51,7 @@ function init() {
       self.health(100);
       self.gameStarted(false);
     };
-  }
+  };
 
   viewModel = new viewModelMaker();
 
@@ -56,6 +60,9 @@ function init() {
   spritesImage = new Image();
   spritesImage.onload = handleImageLoad;
   spritesImage.src = "/images/sprites.png";
+
+  //todo load the background image!!!
+
   console.log("init complete");
 }
 
@@ -106,8 +113,8 @@ function handleImageLoad() {
       yellowwalk: { frames: [16, 15, 17, 15], frequency: 6 },
       yellowattack: { frames: [15, 18, 19, 18, 15], frequency: 6 },
       zombiestand: 20,
-      zombiewalk: { frames: [21, 20, 22, 20], frequency: 6 },
-      zombieattack: { frames: [20, 23, 24, 23, 20], frequency: 6 }
+      zombiewalk: { frames: [21, 20, 22, 20], frequency: 10 },
+      zombieattack: { frames: [20, 23, 24, 23, 20], frequency: 10 }
     }
   };
 
@@ -194,11 +201,10 @@ function tick() {
     for (var i = 0; i < zombies.length; i++) {
       zombies[i].lockOnPlayer();
 
-      if (now - lastAttackTime > 1000)
+      if (zombies[i].shouldAttack && now - zombies[i].lastAttackTime > 500)
       {
         zombies[i].attemptAttack();
-        if (i == zombies.length - 1)
-          lastAttackTime = now;
+        zombies[i].lastAttackTime = now;
       }
 
       zombies[i].establishDirection();
@@ -233,7 +239,7 @@ function tick() {
   if (now - lastDeadCharacterPurgeTime > 10000)
   {
     deadCharacterIds = _.filter(deadCharacterIds, function (id) {
-      now - id.time > 10000;
+      return now - id.time > 10000;
     });
     lastDeadCharacterPurgeTime = now;
   }
@@ -313,7 +319,6 @@ function handleKeyUp(e) {
         break;
       case KEYCODE_SPACE:
         keyPressedSpace = false;
-        //player.setKeyUpOnAttack();
         nonGameKeyPressed = false;
         break;
     }
@@ -342,7 +347,9 @@ function sendDataOnRealtimeRoute(messsageRoute) {
   data.playerId = myId;
   data.chars = [];
 
-  _.find(characters, {id: myId}).appendDataToMessage(data);
+  var player = _.find(characters, {id: myId});
+  if (player)
+    player.appendDataToMessage(data);
 
   var zombies = _.where(characters, {ownerId: myId});
   for (var i = 0; i < zombies.length; i++)
@@ -365,7 +372,7 @@ function setCharacterMovementFromSocket(data) {
   var playerData = _.find(data.chars, {id: data.playerId});
   if (playerFound && playerData)
     playerFound.updatePositionAndVelocity(playerData);
-  else if (!_.any(deadCharacterIds, {id: data.playerId}))
+  else if (playerData && !_.any(deadCharacterIds, {id: data.playerId}))
     addNewPlayer(playerData);
 
   var zombieDataList = _.where(data.chars, {ownerId: data.playerId});
@@ -375,7 +382,7 @@ function setCharacterMovementFromSocket(data) {
 
     if (zombieFound && zombieData)
       zombieFound.updatePositionAndVelocity(zombieData);
-    else if (!_.any(deadCharacterIds, {id: zombieDataList[i].id}))
+    else if (zombieData && !_.any(deadCharacterIds, {id: zombieDataList[i].id}))
       addNewZombie(zombieData);
   }
 
@@ -435,7 +442,7 @@ function addNewZombie(characterData) {
 }
 
 function generateZombie() {
-  var x
+  var x;
   if (dieRoll(2))
     x = -50;
   else
@@ -444,17 +451,15 @@ function generateZombie() {
   addNewZombie({
     id: uuid.v4(),
     spritex: x,
-    spritey: Math.floor(Math.random() * 300) + 200,
+    spritey: Math.floor(Math.random() * 220) + 200,
     updown: 0,
     leftright: 0,
     facingLeftright: 1,
     ownerId: myId,
     targetId: myId
   });
-};
+}
 
 function dieRoll (numberOfSides) {
-  if (Math.floor(Math.random() * numberOfSides) == 1)
-    return true;
-  return false;
+  return Math.floor(Math.random() * numberOfSides) == 1;
 }
