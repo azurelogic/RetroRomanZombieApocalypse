@@ -59,8 +59,8 @@ Character.prototype.move = function (deltaTime) {
 Character.prototype.updatePositionAndVelocity = function (characterData) {
   this.sprite.x = characterData.spritex;
   this.sprite.y = characterData.spritey;
-  this.updown = 0.9 * characterData.updown;
-  this.leftright = 0.9 * characterData.leftright;
+  this.updown = 0.8 * characterData.updown;
+  this.leftright = 0.8 * characterData.leftright;
   this.facingLeftright = characterData.facingLeftright;
   this.health = characterData.health;
   if (characterData.justAttacked)
@@ -209,6 +209,7 @@ var Zombie = function (options) {
   this.continueAnimation = true;
   this.shouldAttack = false;
   this.lastAttackTime = 0;
+  this.stopMoving = false;
 
   this.sprite.onAnimationEnd = function (instance, name) {
     if (name.indexOf('attack') != -1)
@@ -246,6 +247,10 @@ Zombie.prototype.lockOnPlayer = function () {
   this.targetId = _.min(playerMaps,function (playerMap) {
     if (playerMap.distanceSquared <= this.attemptRadiusSquared)
       this.shouldAttack = true;
+    if (playerMap.distanceSquared <= this.damageRadiusSquared)
+      this.stopMoving = true;
+    else
+      this.stopMoving = false;
     return playerMap.distanceSquared;
   }, this).id;
 
@@ -280,7 +285,7 @@ Zombie.prototype.establishDirection = function () {
   if (leftright != 0)
     this.facingLeftright = leftright;
 
-  if (this.justAttacked) {
+  if (this.justAttacked || this.stopMoving) {
     updown = 0;
     leftright = 0;
     this.shouldAttack = false;
@@ -296,10 +301,12 @@ Zombie.prototype.establishDirection = function () {
       return;
     }
 
-    if ((this.updown != 0 || this.leftright != 0) && this.continueAnimation)
-      this.sprite.gotoAndPlay(this.getAnimationNameFor('walk'));
-    else
-      this.sprite.gotoAndPlay(this.getAnimationNameFor('stand'));
+    if (this.continueAnimation) {
+      if ((this.updown != 0 || this.leftright != 0))
+        this.sprite.gotoAndPlay(this.getAnimationNameFor('walk'));
+      else
+        this.sprite.gotoAndPlay(this.getAnimationNameFor('stand'));
+    }
   }
 };
 
