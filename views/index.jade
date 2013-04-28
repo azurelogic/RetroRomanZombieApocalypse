@@ -14,7 +14,7 @@ block scripts
 block content
   body(onload="init();")
     #roomContainer(data-bind="visible: !gameStarted()")
-      #gameData
+      #roomData
         #totalRooms
           h3 Total # of rooms:&nbsp;
             span(data-bind="text: totalRooms")
@@ -36,7 +36,10 @@ block content
     #gameContainer(data-bind="visible: gameStarted")
       canvas#gameCanvas(width=500,height=500) no canvas support
       #gameData
+        #healthStats(data-bind="visible: !dead()")
           h2 Health:
           h1(data-bind="text: health")
-          h2 Score:
-          h1(data-bind="text: points")
+        h1(data-bind="visible: dead") YOU DIED!
+        h2 Score:
+        h1(data-bind="text: points")
+        button(data-bind="click: returnToRoomList") Return to room list
