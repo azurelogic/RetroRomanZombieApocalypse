@@ -34,7 +34,6 @@ var Room = function () {
 app.io.route('playerConnect', function (req) {
   var data = {};
   data.playerId = req.socket.id;
-  console.log(data.playerId);
 
   // add room info to message
   AddRoomsToData(data);
@@ -148,7 +147,7 @@ function LeaveRoom(roomToLeave, req) {
 
     // if the room is now empty, remove it from the room list
     if (roomToLeave.playerIds.length == 0) {
-      _.filter(rooms, function (room) {
+      rooms = _.filter(rooms, function (room) {
         return room.id != roomToLeave.id;
       });
     }
