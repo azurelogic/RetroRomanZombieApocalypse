@@ -18,33 +18,49 @@ block scripts
 
 block content
   body(onload="init();")
-    #roomContainer(data-bind="visible: !gameStarted()")
-      #roomData
-        #totalRooms
-          h3 Total # of rooms:&nbsp;
-            span(data-bind="text: totalRooms")
-        #availableRooms
-          h3 # of rooms available:&nbsp;
-            span(data-bind="text: rooms().length")
-        #playersInRooms
-          h3 # of players in game:&nbsp;
-            span(data-bind="text: playersInRooms")
-        button(data-bind="click: $root.getRoomUpdate") Refresh Rooms
-      #roomList(data-bind="foreach: rooms")
-        .room(data-bind="click: $root.joinRoom")
-          .roomId
-            span Room ID:
-            span(data-bind="text: roomId")
-          .playerCount
-            span # of players:
-            span(data-bind="text: playerCount")
-    #gameContainer(data-bind="visible: gameStarted")
-      canvas#gameCanvas(width=500,height=500) no canvas support
-      #gameData
-        #healthStats(data-bind="visible: !dead()")
-          h2 Health:
-          h1(data-bind="text: health")
-        h1(data-bind="visible: dead") YOU DIED!
-        h2 Score:
-        h1(data-bind="text: points")
-        button(data-bind="click: returnToRoomList") Return to room list
+    #mainContainer
+      #headerContainer
+        h1 Retro Colosseum Zombie Apocalypse
+      #contentContainer.clearfix
+        #roomContainer(data-bind="visible: !gameStarted()")
+          #roomList(data-bind="foreach: rooms")
+            .room(data-bind="click: $root.joinRoom")
+              .roomId
+                span Room ID:
+                span(data-bind="text: roomId")
+              .playerCount
+                span # of players:
+                span(data-bind="text: playerCount")
+          #roomData
+            #totalRooms
+              h2 Total # of rooms:&nbsp;
+                span(data-bind="text: totalRooms")
+            #availableRooms
+              h2 # of rooms available:&nbsp;
+                span(data-bind="text: rooms().length")
+            #playersInRooms
+              h2 # of players in game:&nbsp;
+                span(data-bind="text: playersInRooms")
+            br
+            h2 How to play:
+            h2 Arrow Keys: Move your gladiator
+            h2 Spacebar: ATTACK!!!
+            br
+            button(data-bind="click: $root.getRoomUpdate") Refresh Rooms
+        #gameContainer(data-bind="visible: gameStarted")
+          canvas#gameCanvas(width=500,height=500) no canvas support
+          #gameData
+            #healthStats(data-bind="visible: !dead()")
+              h2 Health:
+              h1(data-bind="text: health")
+            h1(data-bind="visible: dead") YOU DIED!
+            h2 Score:
+            h1(data-bind="text: points")
+            button(data-bind="click: returnToRoomList") Return to room list
+      #footerContainer
+        br
+        h2
+          span Built by Rob Ribeiro
+          br
+          span Twitter:&nbsp;
+          a(href="http://twitter.com/azurelogic")@azurelogic
