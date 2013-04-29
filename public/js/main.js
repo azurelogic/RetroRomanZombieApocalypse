@@ -16,7 +16,6 @@ var localPlayerId;
 var lastTime;
 var lastHeartbeatTime;
 var lastAttackTime;
-var lastPlayerLockTime;
 var lastDeadCharacterPurgeTime;
 var enemyInterval;
 var lastEnemyTime;
@@ -33,6 +32,10 @@ function init() {
   // attach the easelJS stage to the canvas
   canvas = document.getElementById("gameCanvas");
   stage = new createjs.Stage(canvas);
+
+  // initialize arrays
+  characters = [];
+  deadCharacterIds = [];
 
   // setup the viewmodel for knockout
   var viewModelMaker = function () {
@@ -127,10 +130,7 @@ function updateRooms(data) {
 }
 
 function handlePlayerDisconnect(data) {
-  console.log(data.playerId);
-
-  // trigger player death
-  _.find(characters, {id: data.playerId}).die();
+  handlePlayerDied(data);
 
   // clean up abandoned zombies
   _.map(characters, function (character) {
@@ -140,8 +140,6 @@ function handlePlayerDisconnect(data) {
 }
 
 function handlePlayerDied(data) {
-  console.log(data.playerId);
-
   //trigger player death
   _.find(characters, {id: data.playerId}).die();
 }
@@ -211,7 +209,6 @@ function startGame(data) {
   lastHeartbeatTime = 0;
   lastAttackTime = 0;
   lastEnemyTime = 0;
-  lastPlayerLockTime = 0;
   lastDeadCharacterPurgeTime = 0;
   enemyInterval = 1000;
 
@@ -223,9 +220,9 @@ function startGame(data) {
   keyPressedSpace = false;
   sendLocalPlayerMotion = false;
 
-  // initialize characters and dead character arrays
-  characters = [];
-  deadCharacterIds = [];
+  // clear arrays
+  characters.length = 0;
+  deadCharacterIds.length = 0;
 
   // strip stage
   stage.removeAllChildren();
@@ -283,16 +280,16 @@ function tick() {
   // generate enemies
   if (now - lastEnemyTime > enemyInterval) {
     generateZombie();
-    enemyInterval = Math.floor(Math.random() * 1000) + 2000;
+    enemyInterval = Math.floor(Math.random() * 2000) + 2000;
     lastEnemyTime = now;
   }
 
   // establish targeting and attacks by enemies
   var zombies = _.where(characters, {ownerId: localPlayerId});
   for (var i = 0; i < zombies.length; i++) {
-    if (now - lastPlayerLockTime > 51) {
+    if (now - zombies[i].lastPlayerLockTime > 51) {
       zombies[i].lockOnPlayer();
-      lastPlayerLockTime = now;
+      zombies[i].lastPlayerLockTime = now;
     }
     if (zombies[i].canAttemptAttack &&
       now - zombies[i].lastAttackAttemptTime > Math.floor(Math.random() * 500) + 500) {

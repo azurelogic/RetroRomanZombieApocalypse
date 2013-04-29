@@ -257,6 +257,8 @@ Player.prototype.die = function () {
   // update viewmodel and notify other players if local player died
   if (this.id == localPlayerId) {
     viewModel.dead(true);
+    document.onkeydown = null;
+    document.onkeyup = null;
     socket.emit('localPlayerDied', {playerId: localPlayerId, roomId: viewModel.currentRoomId()});
   }
 
@@ -284,6 +286,7 @@ var Zombie = function (options) {
   this.sprite.notRunningAttackAnimation = true;
   this.canAttemptAttack = false;
   this.lastAttackAttemptTime = 0;
+  this.lastPlayerLockTime = 0;
   this.stopMoving = false;
   this.sprite.parentZombie = this;
 
