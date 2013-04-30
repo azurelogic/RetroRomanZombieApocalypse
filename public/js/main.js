@@ -6,6 +6,7 @@ var KEYCODE_DOWN = 40;
 
 var canvas;
 var stage;
+var background;
 var spritesImage;
 var spriteSheet;
 var characters;
@@ -107,6 +108,9 @@ function init() {
   socket.on('playerDisconnected', handlePlayerDisconnect);
   socket.on('remotePlayerDied', handlePlayerDied);
   socket.emit('playerConnect');
+
+  // load background
+  background = new createjs.Bitmap("/images/colosseum.png");
 
   // load sprite sheet
   spritesImage = new Image();
@@ -224,9 +228,10 @@ function startGame(data) {
   characters.length = 0;
   deadCharacterIds.length = 0;
 
-  // strip stage
+  // strip stage and add background
   stage.removeAllChildren();
   stage.removeAllEventListeners();
+  stage.addChild(background);
 
   // setup player colors
   colors = [];
@@ -308,8 +313,11 @@ function tick() {
   var sortedCharacters = _.sortBy(characters, function (character) {
     return character.sprite.y;
   });
+  // strip the stage
   stage.removeAllChildren();
-  //todo need to reinject the stage first!!!!!!
+  // reinsert the stage
+  stage.addChild(background);
+  // reinsert the characters in sorted order
   for (var i = 0; i < sortedCharacters.length; i++)
     stage.addChild(sortedCharacters[i].sprite);
 
