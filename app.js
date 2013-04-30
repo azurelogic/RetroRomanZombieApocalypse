@@ -177,7 +177,7 @@ app.io.route('localPlayerDied', function (req) {
 
 // root route: returns game page
 app.get('/', function (req, res) {
-  res.render('index', { title: 'Retro Colosseum Zombie Apocalypse' });
+  res.render('index', { title: 'Retro Roman Zombie Apocalypse' });
 });
 //app.get('/', routes.index);
 

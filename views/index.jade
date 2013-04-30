@@ -19,10 +19,11 @@ block scripts
 block content
   body(onload="init();")
     #mainContainer
-      #headerContainer
-        h1 Retro Colosseum Zombie Apocalypse
+      #headerContainer.centerText
+        h1 Retro Roman Zombie Apocalypse
       #contentContainer.clearfix
-        #roomContainer(data-bind="visible: !gameStarted()")
+        #roomContainer.centerText(data-bind="visible: !gameStarted()")
+          h2 Click on a room below to join the action
           #roomList(data-bind="foreach: rooms")
             .room(data-bind="click: $root.joinRoom")
               .roomId
@@ -31,22 +32,22 @@ block content
               .playerCount
                 span # of players:
                 span(data-bind="text: playerCount")
-          #roomData
-            #totalRooms
-              h2 Total # of rooms:&nbsp;
-                span(data-bind="text: totalRooms")
-            #availableRooms
-              h2 # of rooms available:&nbsp;
-                span(data-bind="text: rooms().length")
-            #playersInRooms
-              h2 # of players in game:&nbsp;
-                span(data-bind="text: playersInRooms")
-            br
-            h2 How to play:
-            h2 Arrow Keys: Move your gladiator
-            h2 Spacebar: ATTACK!!!
-            br
-            button(data-bind="click: $root.getRoomUpdate") Refresh Rooms
+        #roomData(data-bind="visible: !gameStarted()")
+          #totalRooms
+            h2 Total # of rooms:&nbsp;
+              span(data-bind="text: totalRooms")
+          #availableRooms
+            h2 # of rooms available:&nbsp;
+              span(data-bind="text: rooms().length")
+          #playersInRooms
+            h2 # of players in game:&nbsp;
+              span(data-bind="text: playersInRooms")
+          br
+          h2 How to play:
+          h2 Arrow Keys: Move your gladiator
+          h2 Spacebar: ATTACK!!!
+          br
+          button(data-bind="click: $root.getRoomUpdate") Refresh Rooms
         #gameContainer(data-bind="visible: gameStarted")
           canvas#gameCanvas(width=500,height=500) no canvas support
           #gameData
@@ -57,7 +58,7 @@ block content
             h2 Score:
             h1(data-bind="text: points")
             button(data-bind="click: returnToRoomList") Return to room list
-      #footerContainer
+      #footerContainer.centerText
         br
         h2
           span Built by Rob Ribeiro
