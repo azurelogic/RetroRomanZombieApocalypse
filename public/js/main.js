@@ -32,7 +32,8 @@ function init() {
 
   // initialize arrays
   characters = [];
-
+  deadCharacterIds = [];
+  
   // connect to server
   socket = io.connect();
 
@@ -40,7 +41,7 @@ function init() {
   socket.on('connectionReply', loadRoomsAndMyId);
   socket.on('roomJoined', startGame);
   socket.on('clientReceive', handleGameDataReceivedFromServer);
-  socket.on('playerDisconnected', handlePlayerDisconnect);
+  socket.on('playerDisconnected', handlePlayerDied);
   socket.emit('playerConnect');
 
   // load background
@@ -57,12 +58,8 @@ function loadRoomsAndMyId(data) {
   localPlayerId = data.playerId;
   var data = {};
   data.playerId = localPlayerId;
-  data.roomId = room.roomId;
+  data.roomId = 'theRoom';
   socket.emit('joinRoom', data);
-}
-
-function handlePlayerDisconnect(data) {
-  handlePlayerDied(data);
 }
 
 function handlePlayerDied(data) {
@@ -225,11 +222,8 @@ function tick() {
 
   // fixes for characters that need to happen after sending game data
   for (var i = 0; i < characters.length; i++) {
-    // reset justAttacked flags for all characters
-    characters[i].justAttacked = false;
-
     // remove characters that are out of health or have not been updated
-    if (characters[i].health <= 0 || now - characters[i].lastUpdateTime > 3000)
+    if (now - characters[i].lastUpdateTime > 3000)
       characters[i].die();
   }
 
@@ -409,5 +403,4 @@ function pickNewPlayerColor() {
   }
   // return the first unused color found
   return result;
-}
 }

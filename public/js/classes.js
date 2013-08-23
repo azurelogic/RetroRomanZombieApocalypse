@@ -118,10 +118,6 @@ Character.prototype.stopUpDownMotion = function () {
 var Player = function (options) {
   // call base class constructor
   Character.call(this, options);
-
-  // setup player attack animation follow up
-  spriteSheet.getAnimation(this.color + 'attack').next = this.color + 'stand';
-  spriteSheet.getAnimation(this.color + 'attack_h').next = this.color + 'stand_h';
 };
 
 // establish that Player inherits from Character
@@ -163,7 +159,7 @@ Player.prototype.die = function () {
   deadCharacterIds.push({id: this.id, time: Date.now()});
   this.dead = true;
 
-  // update viewmodel and notify other players if local player died
+  //notify other players if local player died
   if (this.id == localPlayerId) {
     document.onkeydown = null;
     document.onkeyup = null;

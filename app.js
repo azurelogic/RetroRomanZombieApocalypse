@@ -30,26 +30,17 @@ app.io.route('playerConnect', function (req) {
   req.io.emit('connectionReply', data);
 });
 
-// attempts to allow a player to join a game:
-// if successful, the player id is added to the room and notified;
-// if failed, the player is sent a refusal;
+//the player id is added to the room and notified;
 app.io.route('joinRoom', function (req) {
   // register player with room
-  req.io.join(room.id);
+  req.io.join(req.data.roomId);
 
   // send verification that room was joined to the player with room id
-  req.io.emit('roomJoined', {roomId: room.id});
+  req.io.emit('roomJoined', {roomId: req.data.roomId});
 
   // handle player disconnection:
   // requires socket id to be captured in closure scope for later use
   req.socket.on('disconnect', function () {
-    // find the room being left
-    var roomToLeave = _.find(rooms, function (room) {
-      return _.any(room.playerIds, function (id) {
-        // capture socket id in closure scope
-        return id == req.socket.id;
-      });
-    });
     // notify other players in the room of the disconnection
     var data = {};
     data.playerId = req.socket.id;
@@ -74,11 +65,6 @@ app.io.route('leaveRoom', function (req) {
 // handles rebroadcast of gameplay messages to other players in the room
 app.io.route('clientSend', function (req) {
   req.io.room(req.data.roomId).broadcast('clientReceive', req.data);
-});
-
-// handles rebroadcast of gameplay messages to other players in the room
-app.io.route('localPlayerDied', function (req) {
-  req.io.room(req.data.roomId).broadcast('remotePlayerDied', req.data);
 });
 
 // ----- path routes -----
