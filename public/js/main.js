@@ -1,9 +1,9 @@
-var KEYCODE_SPACE = 32;
 var KEYCODE_UP = 38;
 var KEYCODE_LEFT = 37;
 var KEYCODE_RIGHT = 39;
 var KEYCODE_DOWN = 40;
 
+var currentRoomId;
 var canvas;
 var stage;
 var background;
@@ -18,14 +18,10 @@ var lastTime;
 var lastHeartbeatTime;
 var lastAttackTime;
 var lastDeadCharacterPurgeTime;
-var enemyInterval;
-var lastEnemyTime;
 var keyPressedDown;
 var keyPressedUp;
 var keyPressedLeft;
 var keyPressedRight;
-var keyPressedSpace;
-var viewModel;
 var sendLocalPlayerMotion;
 
 // initialize the whole game site
@@ -36,65 +32,6 @@ function init() {
 
   // initialize arrays
   characters = [];
-  deadCharacterIds = [];
-
-  // setup the viewmodel for knockout
-  var viewModelMaker = function () {
-    var self = this;
-
-    // in game data
-    self.points = ko.observable();
-    self.health = ko.observable();
-    self.gameStarted = ko.observable();
-    self.currentRoomId = ko.observable();
-    self.dead = ko.observable();
-
-    // room stats
-    self.totalRooms = ko.observable();
-    self.playersInRooms = ko.observable();
-
-    // room list
-    self.rooms = ko.observableArray();
-
-    // this initiates room join with server
-    self.joinRoom = function (room) {
-      var data = {};
-      data.playerId = localPlayerId;
-      data.roomId = room.roomId;
-      socket.emit('joinRoom', data);
-    };
-
-    // requests updated room list from server
-    self.getRoomUpdate = function () {
-      socket.emit('getRooms');
-    };
-
-    // returns player to room list
-    self.returnToRoomList = function () {
-      socket.emit('leaveRoom', {roomId: viewModel.currentRoomId()});
-      stage.removeAllChildren();
-      stage.removeAllEventListeners();
-      self.getRoomUpdate();
-      self.gameStarted(false);
-    };
-
-    // adds points to current score
-    self.awardPoints = function (points) {
-      self.points(self.points() + points);
-    };
-
-    // resets game state for a new game
-    self.newGameReset = function () {
-      self.points(0);
-      self.health(100);
-      self.gameStarted(false);
-      self.dead(false);
-    };
-  };
-
-  // instantiate viewmodel and register with knockout
-  viewModel = new viewModelMaker();
-  ko.applyBindings(viewModel);
 
   // connect to server
   socket = io.connect();
@@ -102,11 +39,8 @@ function init() {
   // register callbacks for server messages
   socket.on('connectionReply', loadRoomsAndMyId);
   socket.on('roomJoined', startGame);
-  socket.on('updatedRoomList', updateRooms);
-  socket.on('connectionRefused', viewModel.getRoomUpdate);
   socket.on('clientReceive', handleGameDataReceivedFromServer);
   socket.on('playerDisconnected', handlePlayerDisconnect);
-  socket.on('remotePlayerDied', handlePlayerDied);
   socket.emit('playerConnect');
 
   // load background
@@ -116,31 +50,19 @@ function init() {
   spritesImage = new Image();
   spritesImage.onload = handleImageLoad;
   spritesImage.src = "/images/sprites.png";
-
-  //todo load the background image!!!
 }
 
 // sets player id and room data from server message
 function loadRoomsAndMyId(data) {
   localPlayerId = data.playerId;
-  updateRooms(data);
-}
-
-// updates room stats and list from data message
-function updateRooms(data) {
-  viewModel.totalRooms(data.totalRooms);
-  viewModel.playersInRooms(data.playersInRooms);
-  viewModel.rooms(data.rooms);
+  var data = {};
+  data.playerId = localPlayerId;
+  data.roomId = room.roomId;
+  socket.emit('joinRoom', data);
 }
 
 function handlePlayerDisconnect(data) {
   handlePlayerDied(data);
-
-  // clean up abandoned zombies
-  _.map(characters, function (character) {
-    if (character.characterType == 'zombie' && character.ownerId == data.playerId)
-      character.die();
-  });
 }
 
 function handlePlayerDied(data) {
@@ -206,7 +128,7 @@ function handleImageLoad() {
 // start a game
 function startGame(data) {
   // set the room id based on server message
-  viewModel.currentRoomId(data.roomId);
+  currentRoomId = data.roomId;
 
   // initialize time trackers
   lastTime = 0;
@@ -214,7 +136,6 @@ function startGame(data) {
   lastAttackTime = 0;
   lastEnemyTime = 0;
   lastDeadCharacterPurgeTime = 0;
-  enemyInterval = 1000;
 
   // set key press flags to false
   keyPressedDown = false;
@@ -253,11 +174,6 @@ function startGame(data) {
     facingLeftright: -1
   });
 
-  // reset viewmodel game state
-  viewModel.newGameReset();
-  // set flag that game has started
-  viewModel.gameStarted(true);
-
   // attach key press functions to document events
   document.onkeydown = handleKeyDown;
   document.onkeyup = handleKeyUp;
@@ -282,28 +198,6 @@ function tick() {
   // this makes the game logic run independent of frame rate
   var deltaTime = now - lastTime;
 
-  // generate enemies
-  if (now - lastEnemyTime > enemyInterval) {
-    generateZombie();
-    enemyInterval = Math.floor(Math.random() * 2000) + 2000;
-    lastEnemyTime = now;
-  }
-
-  // establish targeting and attacks by enemies
-  var zombies = _.where(characters, {ownerId: localPlayerId});
-  for (var i = 0; i < zombies.length; i++) {
-    if (now - zombies[i].lastPlayerLockTime > 51) {
-      zombies[i].lockOnPlayer();
-      zombies[i].lastPlayerLockTime = now;
-    }
-    if (zombies[i].canAttemptAttack &&
-      now - zombies[i].lastAttackAttemptTime > Math.floor(Math.random() * 500) + 500) {
-      zombies[i].setToAttack();
-      zombies[i].lastAttackAttemptTime = now;
-    }
-    zombies[i].determineDirectionsAndActions();
-  }
-
   // move all of the characters
   for (var i = 0; i < characters.length; i++)
     if (characters[i])
@@ -321,20 +215,9 @@ function tick() {
   for (var i = 0; i < sortedCharacters.length; i++)
     stage.addChild(sortedCharacters[i].sprite);
 
-  // determine if any local models attacked
-  var localModelAttacked = _.any(characters, function (character) {
-    if (!character.justAttacked)
-      return false;
-    if (character.characterType == 'player' && character.id == localPlayerId)
-      return true;
-    if (character.characterType == 'zombie' && character.ownerId == localPlayerId)
-      return true;
-    return false;
-  });
-
   // send game data if motion occurred, any local character attacked,
   // or just a heartbeat every 500 milliseconds
-  if (sendLocalPlayerMotion || localModelAttacked || now - lastHeartbeatTime > 500) {
+  if (sendLocalPlayerMotion || now - lastHeartbeatTime > 500) {
     sendLocalPlayerMotion = false;
     sendGameDataToServer();
     lastHeartbeatTime = now;
@@ -401,14 +284,6 @@ function handleKeyDown(e) {
         }
         nonGameKeyPressed = false;
         break;
-      case KEYCODE_SPACE:
-        if (!keyPressedSpace) {
-          player.justAttacked = true;
-          keyPressedSpace = true;
-          player.handleAttackOn('zombie');
-        }
-        nonGameKeyPressed = false;
-        break;
     }
     // return necessary to tell the browser whether it should handle the
     // key separately; don't want game keys being passed back to the
@@ -443,10 +318,6 @@ function handleKeyUp(e) {
         player.stopUpDownMotion();
         nonGameKeyPressed = false;
         break;
-      case KEYCODE_SPACE:
-        keyPressedSpace = false;
-        nonGameKeyPressed = false;
-        break;
     }
     // return necessary to tell the browser whether it should handle the
     // key separately; don't want game keys being passed back to the
@@ -476,7 +347,7 @@ function sendGameDataToServer() {
   var data = {};
 
   // attach room and player ids
-  data.roomId = viewModel.currentRoomId();
+  data.roomId = currentRoomId;
   data.playerId = localPlayerId;
 
   // initialize character array
@@ -486,20 +357,6 @@ function sendGameDataToServer() {
   var player = _.find(characters, {id: localPlayerId});
   if (player)
     player.appendDataToMessage(data);
-
-  // find zombies owned by local player and pack their data on message
-  var zombies = _.where(characters, {ownerId: localPlayerId});
-  for (var i = 0; i < zombies.length; i++)
-    zombies[i].appendDataToMessage(data);
-
-  // initialize damaged enemy array
-  data.damaged = [];
-
-  // find zombies that local player has damaged and pack their
-  // data on message for updating their owner
-  var zombies = _.where(characters, {damaged: true});
-  for (var i = 0; i < zombies.length; i++)
-    zombies[i].appendDamagedDataToMessage(data);
 
   // ship data to the server
   socket.emit('clientSend', data);
@@ -519,43 +376,6 @@ function handleGameDataReceivedFromServer(data) {
   // when player does not exist and was not recently killed, add them
   else if (playerData && !_.any(deadCharacterIds, {id: data.playerId}))
     addNewPlayer(playerData);
-
-  // extract models of remotely owned enemies from data message
-  var zombieDataList = _.where(data.chars, {ownerId: data.playerId});
-  // iterate over zombies being updated
-  for (var i = 0; i < zombieDataList.length; i++) {
-    // find local model of remote zombie
-    var zombieFound = _.find(characters, {id: zombieDataList[i].id});
-    // extract specific remote zombie data from data message
-    var zombieData = _.find(data.chars, {id: zombieDataList[i].id});
-    // if zombie exists, update local representation model
-    if (zombieFound && zombieData)
-      zombieFound.updateLocalCharacterModel(zombieData);
-    // when zombie does not exist and was not recently killed, add them
-    else if (zombieData && !_.any(deadCharacterIds, {id: zombieDataList[i].id}))
-      addNewZombie(zombieData);
-  }
-
-  // remove zombies that are no longer being updated
-  var localZombiesModelsForIncomingData = _.where(data.chars, {ownerId: data.playerId});
-  for (var i = 0; i < localZombiesModelsForIncomingData.length; i++) {
-    if (!_.any(zombieDataList, {id: localZombiesModelsForIncomingData[i].id}))
-      localZombiesModelsForIncomingData[i].die();
-  }
-
-
-  // find local models of damaged zombies that local player owns
-  var damagedZombieDataList = _.where(data.damaged, {ownerId: localPlayerId});
-  // iterate over damaged zombies being updated
-  for (var i = 0; i < damagedZombieDataList.length; i++) {
-    // find local model of local zombie
-    var zombieFound = _.find(characters, {id: damagedZombieDataList[i].id});
-    // extract damage model for zombie
-    var zombieData = _.find(data.damaged, {id: damagedZombieDataList[i].id});
-    // if matches are found, issue damage to the local model
-    if (zombieFound && zombieData)
-      zombieFound.takeDamage(zombieData.damage);
-  }
 }
 
 // create a new local model for a player based on options object
@@ -570,7 +390,6 @@ function addNewPlayer(options) {
     facingLeftright: options.facingLeftright,
     color: pickNewPlayerColor(),
     characterType: 'player',
-    health: 100
   }));
 }
 
@@ -591,43 +410,4 @@ function pickNewPlayerColor() {
   // return the first unused color found
   return result;
 }
-
-// create a new local model for a zombie based on options object
-function addNewZombie(options) {
-  // add the new zombie to the characters array
-  characters.push(new Zombie({
-    id: options.id,
-    x: options.spritex,
-    y: options.spritey,
-    updown: options.updown,
-    leftright: options.leftright,
-    facingLeftright: options.facingLeftright,
-    ownerId: options.ownerId,
-    color: 'zombie',
-    characterType: 'zombie',
-    targetId: options.targetId,
-    health: 100
-  }));
-}
-
-// sets the coordinates of a new zombie and calls to add it locally
-function generateZombie() {
-  // pick left or right side of stage to spawn
-  var x;
-  if (Math.floor(Math.random() * 2) == 1)
-    x = -50;
-  else
-    x = 550;
-
-  // add the new zombie
-  addNewZombie({
-    id: uuid.v4(),
-    spritex: x,
-    spritey: Math.floor(Math.random() * 220) + 200,
-    updown: 0,
-    leftright: 0,
-    facingLeftright: 1,
-    ownerId: localPlayerId,
-    targetId: localPlayerId
-  });
 }
