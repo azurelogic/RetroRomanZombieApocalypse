@@ -16,3 +16,5 @@ Also, all the art was from scratch and was limited to the old school web colors 
 Check it out at http://azurelogic.com/
 
 Disclaimer: No jQuery was used or abused in the making of this game
+
+This code is licensed under GPLv3.
