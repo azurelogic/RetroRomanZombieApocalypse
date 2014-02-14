@@ -32,7 +32,7 @@ var server = http.createServer(app).listen(app.get('port'), function () {
   console.log('Express server listening on port ' + app.get('port'));
 });
 //attach socket.io
-var io = require('socket.io', { serveClient: false, path: 'sockets/gummiwars'}).listen(server);
+var io = require('socket.io', { serveClient: false, path: 'sockets/rrza'}).listen(server);
 
 // ----- routes -----
 
