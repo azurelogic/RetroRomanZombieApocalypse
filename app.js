@@ -1,38 +1,106 @@
-// module dependencies
-var express = require('express')
-    , http = require('http')
-//, routes = require('./routes')
-    , path = require('path')
-    , uuid = require('node-uuid')
-    , _ = require('lodash');
+#!/usr/bin/env node
+
+/**
+ * Module dependencies.
+ */
+
+var debug = require('debug')('express-sample:server');
+var http = require('http');
+var express = require('express');
+var path = require('path');
+var favicon = require('serve-favicon');
+var logger = require('morgan');
+var cookieParser = require('cookie-parser');
+var bodyParser = require('body-parser');
+var uuid = require('node-uuid');
+var _ = require('lodash');
 
 var app = express();
 
-// configuration
-app.set('port', process.env.PORT || 3000);
-app.set('views', __dirname + '/views');
+// view engine setup
+app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
-app.use(express.favicon());
-app.use(express.logger('dev'));
-app.use(express.json());
-app.use(express.urlencoded());
-app.use(express.methodOverride());
-app.use(express.cookieParser('your secret here'));
-app.use(express.session());
-app.use(app.router);
-app.use(require('less-middleware')({ src: __dirname + '/public' }));
+
+// uncomment after placing your favicon in /public
+//app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
+app.use(logger('dev'));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(cookieParser());
+app.use(require('less-middleware')(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.configure('development', function () {
-  app.use(express.errorHandler());
-});
+/**
+ * Get port from environment and store in Express.
+ */
 
-// start the server
-var server = http.createServer(app).listen(app.get('port'), function () {
-  console.log('Express server listening on port ' + app.get('port'));
-});
+var port = normalizePort(process.env.PORT || '3000');
+app.set('port', port);
+
+/**
+ * Create HTTP server.
+ */
+
+var server = http.createServer(app);
+
+/**
+ * Listen on provided port, on all network interfaces.
+ */
+
+server.listen(port);
+server.on('error', onError);
+server.on('listening', onListening);
+
 //attach socket.io
-var io = require('socket.io', { serveClient: false, path: 'sockets/rrza'}).listen(server);
+var io = require('socket.io')(server, { serveClient: false, path: '/sockets/rrza'});
+
+/**
+ * Normalize a port into a number, string, or false.
+ */
+
+function normalizePort(val) {
+  var port = parseInt(val, 10);
+
+  if (isNaN(port)) {
+    // named pipe
+    return val;
+  }
+
+  if (port >= 0) {
+    // port number
+    return port;
+  }
+
+  return false;
+}
+
+/**
+ * Event listener for HTTP server "error" event.
+ */
+
+function onError(error) {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  var bind = typeof port === 'string'
+    ? 'Pipe ' + port
+    : 'Port ' + port;
+
+  // handle specific listen errors with friendly messages
+  switch (error.code) {
+    case 'EACCES':
+      console.error(bind + ' requires elevated privileges');
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(bind + ' is already in use');
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+}
 
 // ----- routes -----
 
@@ -40,8 +108,49 @@ var io = require('socket.io', { serveClient: false, path: 'sockets/rrza'}).liste
 app.get('/', function (req, res) {
   res.render('index', { title: 'GummiWars' });
 });
-//app.get('/', routes.index);
 
+// // catch 404 and forward to error handler
+// app.use(function(req, res, next) {
+//   var err = new Error('Not Found');
+//   err.status = 404;
+//   next(err);
+// });
+//
+// // error handlers
+//
+// // development error handler
+// // will print stacktrace
+// if (app.get('env') === 'development') {
+//   app.use(function(err, req, res, next) {
+//     res.status(err.status || 500);
+//     res.render('error', {
+//       message: err.message,
+//       error: err
+//     });
+//   });
+// }
+//
+// // production error handler
+// // no stacktraces leaked to user
+// app.use(function(err, req, res, next) {
+//   res.status(err.status || 500);
+//   res.render('error', {
+//     message: err.message,
+//     error: {}
+//   });
+// });
+
+/**
+ * Event listener for HTTP server "listening" event.
+ */
+
+function onListening() {
+  var addr = server.address();
+  var bind = typeof addr === 'string'
+    ? 'pipe ' + addr
+    : 'port ' + addr.port;
+  debug('Listening on ' + bind);
+}
 
 var rooms = [];
 var Room = function () {
@@ -105,7 +214,7 @@ function leaveRoom(roomToLeave, socket) {
     else {
       var data = {};
       data.playerId = socket.id;
-      socket.broadcast.to(roomToLeave.id).emit('playerDisconnected', data);
+      socket.to(roomToLeave.id).emit('playerDisconnected', data);
     }
 
     // remove the player from the socket.io room
@@ -114,7 +223,7 @@ function leaveRoom(roomToLeave, socket) {
 }
 
 // ----- socket.io -----
-io.sockets.on('connection', function (socket) {
+io.on('connection', function (socket) {
 // sends player their id and a list of rooms
   socket.on('playerConnect', function () {
     var data = {};
@@ -142,7 +251,7 @@ io.sockets.on('connection', function (socket) {
   socket.on('disconnect', function () {
     // find the room being left
     var roomToLeave = _.find(rooms, function (room) {
-      return _.any(room.playerIds, function (id) {
+      return _.some(room.playerIds, function (id) {
         // capture socket id in closure scope
         return id == socket.id;
       });
@@ -180,16 +289,16 @@ io.sockets.on('connection', function (socket) {
     var roomToLeave = _.find(rooms, {id: data.roomId});
 
     // handle the rest of the disconnection
-    leaveRoom(roomToLeave, data);
+    leaveRoom(roomToLeave, socket);
   });
 
 // handles rebroadcast of gameplay messages to other players in the room
   socket.on('clientSend', function (data) {
-    socket.broadcast.to(data.roomId).emit('clientReceive', data);
+    socket.to(data.roomId).emit('clientReceive', data);
   });
 
 // handles rebroadcast of gameplay messages to other players in the room
   socket.on('localPlayerDied', function (data) {
-    socket.broadcast.to(data.roomId).emit('remotePlayerDied', data);
+    socket.to(data.roomId).emit('remotePlayerDied', data);
   });
 });

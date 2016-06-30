@@ -97,7 +97,7 @@ function init() {
   ko.applyBindings(viewModel);
 
   // connect to server
-  socket = io.connect(location.protocol + '//' + location.host, {path: 'sockets/rrza'});
+  socket = io(location.protocol + '//' + location.host, {path: '/sockets/rrza'});
 
   // register callbacks for server messages
   socket.on('connectionReply', loadRoomsAndMyId);
@@ -290,7 +290,7 @@ function tick() {
   }
 
   // establish targeting and attacks by enemies
-  var zombies = _.where(characters, {ownerId: localPlayerId});
+  var zombies = _.filter(characters, {ownerId: localPlayerId});
   for (var i = 0; i < zombies.length; i++) {
     if (now - zombies[i].lastPlayerLockTime > 51) {
       zombies[i].lockOnPlayer();
@@ -322,7 +322,7 @@ function tick() {
     stage.addChild(sortedCharacters[i].sprite);
 
   // determine if any local models attacked
-  var localModelAttacked = _.any(characters, function (character) {
+  var localModelAttacked = _.some(characters, function (character) {
     if (!character.justAttacked)
       return false;
     if (character.characterType == 'player' && character.id == localPlayerId)
@@ -352,7 +352,7 @@ function tick() {
 
   // strip the dead from characters array;
   // sprite will not be reinserted to stage during sorting on next tick
-  characters = _.where(characters, {dead: false});
+  characters = _.filter(characters, {dead: false});
 
   // purge dead characters after they have been dead more than 10 seconds
   if (now - lastDeadCharacterPurgeTime > 3001) {
@@ -488,7 +488,7 @@ function sendGameDataToServer() {
     player.appendDataToMessage(data);
 
   // find zombies owned by local player and pack their data on message
-  var zombies = _.where(characters, {ownerId: localPlayerId});
+  var zombies = _.filter(characters, {ownerId: localPlayerId});
   for (var i = 0; i < zombies.length; i++)
     zombies[i].appendDataToMessage(data);
 
@@ -497,7 +497,7 @@ function sendGameDataToServer() {
 
   // find zombies that local player has damaged and pack their
   // data on message for updating their owner
-  var zombies = _.where(characters, {damaged: true});
+  var zombies = _.filter(characters, {damaged: true});
   for (var i = 0; i < zombies.length; i++)
     zombies[i].appendDamagedDataToMessage(data);
 
@@ -517,11 +517,11 @@ function handleGameDataReceivedFromServer(data) {
   if (playerFound && playerData)
     playerFound.updateLocalCharacterModel(playerData);
   // when player does not exist and was not recently killed, add them
-  else if (playerData && !_.any(deadCharacterIds, {id: data.playerId}))
+  else if (playerData && !_.some(deadCharacterIds, {id: data.playerId}))
     addNewPlayer(playerData);
 
   // extract models of remotely owned enemies from data message
-  var zombieDataList = _.where(data.chars, {ownerId: data.playerId});
+  var zombieDataList = _.filter(data.chars, {ownerId: data.playerId});
   // iterate over zombies being updated
   for (var i = 0; i < zombieDataList.length; i++) {
     // find local model of remote zombie
@@ -532,20 +532,20 @@ function handleGameDataReceivedFromServer(data) {
     if (zombieFound && zombieData)
       zombieFound.updateLocalCharacterModel(zombieData);
     // when zombie does not exist and was not recently killed, add them
-    else if (zombieData && !_.any(deadCharacterIds, {id: zombieDataList[i].id}))
+    else if (zombieData && !_.some(deadCharacterIds, {id: zombieDataList[i].id}))
       addNewZombie(zombieData);
   }
 
   // remove zombies that are no longer being updated
-  var localZombiesModelsForIncomingData = _.where(data.chars, {ownerId: data.playerId});
+  var localZombiesModelsForIncomingData = _.filter(data.chars, {ownerId: data.playerId});
   for (var i = 0; i < localZombiesModelsForIncomingData.length; i++) {
-    if (!_.any(zombieDataList, {id: localZombiesModelsForIncomingData[i].id}))
+    if (!_.some(zombieDataList, {id: localZombiesModelsForIncomingData[i].id}))
       localZombiesModelsForIncomingData[i].die();
   }
 
 
   // find local models of damaged zombies that local player owns
-  var damagedZombieDataList = _.where(data.damaged, {ownerId: localPlayerId});
+  var damagedZombieDataList = _.filter(data.damaged, {ownerId: localPlayerId});
   // iterate over damaged zombies being updated
   for (var i = 0; i < damagedZombieDataList.length; i++) {
     // find local model of local zombie

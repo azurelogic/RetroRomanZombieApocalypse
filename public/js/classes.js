@@ -138,7 +138,7 @@ Character.prototype.handleAttackOn = function (enemyType) {
   this.startAttackMotion();
 
   // find the local models of the enemy type
-  var opposingForces = _.where(characters, {characterType: enemyType});
+  var opposingForces = _.filter(characters, {characterType: enemyType});
 
   // perform collision detection with all opposing forces
   for (var i = 0; i < opposingForces.length; i++) {
@@ -365,23 +365,25 @@ Zombie.prototype.updateLocalCharacterModel = function (characterData) {
 // handle zombie targeting nearest player
 Zombie.prototype.lockOnPlayer = function () {
   // extract players from characters array
-  var players = _.where(characters, {characterType: 'player'});
+  var players = _.filter(characters, {characterType: 'player'});
   // get array of ids and distances from zombie
-  var playerMaps = _.map(players, function (player) {
+  var playerMaps = _.map(players, _.bind(function (player) {
     var x = this.sprite.x - player.sprite.x;
     var y = this.sprite.y - player.sprite.y;
     return {id: player.id,
       distanceSquared: x * x + y * y};
-  }, this);
+  }, this));
   // set target to character that is closest by finding the minimum distance
-  this.targetId = _.min(playerMaps,function (playerMap) {
+  var closestPlayerMap = _.minBy(playerMaps, _.bind(function (playerMap) {
     // mark to allow attack attempt
     this.canAttemptAttack = playerMap.distanceSquared <= this.attemptRadiusSquared;
     // mark to stop moving when very close to player
     this.stopMoving = playerMap.distanceSquared <= 100;
     // return the distance
     return playerMap.distanceSquared;
-  }, this).id;
+  }, this));
+  if (closestPlayerMap)
+    this.targetId = closestPlayerMap.id;
 };
 
 // decide if the zombie should attempt to attack
