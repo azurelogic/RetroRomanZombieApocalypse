@@ -273,10 +273,8 @@ function startGame(data) {
     document.onkeydown = handleKeyDown;
     document.onkeyup = handleKeyUp;
 
-    // set preferred frame rate to 60 frames per second and
-    // use requestanimationframe if available
-    createjs.Ticker.useRAF = true;
-    createjs.Ticker.setFPS(60);
+    // set preferred frame rate to 60 frames per second
+    createjs.Ticker.framerate = 60;
 
     // start the game loop
     if (!createjs.Ticker.hasEventListener("tick")) {
