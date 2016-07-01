@@ -1,0 +1,15 @@
+{
+  "dependencies": {
+    "knockout": "registry:npm/knockout#3.4.0+20160516171930",
+    "lodash": "registry:npm/lodash#4.0.0+20160416211519",
+    "node-uuid": "registry:npm/node-uuid#1.4.7+20160503013124"
+  },
+  "globalDependencies": {
+    "createjs-lib": "registry:dt/createjs-lib#0.0.0+20160317120654",
+    "easeljs": "registry:dt/easeljs#0.8.0+20160414061141",
+    "lodash": "registry:global/lodash#4.0.0+20160412191414",
+    "node": "registry:env/node#6.0.0+20160622202520",
+    "socket.io": "registry:dt/socket.io#1.4.4+20160317120654",
+    "tweenjs": "registry:dt/tweenjs#0.6.0+20160317120654"
+  }
+}

@@ -1,0 +1,13 @@
+{
+    "compilerOptions": {
+        "module": "system",
+        "target": "es5",
+        "noImplicitAny": false,
+        "outDir": "public/js/compiled",
+        "sourceMap": true
+    },
+    "files": [
+        "public/ts/main.ts",
+        "typings/index.d.ts"
+    ]
+}

@@ -1,4 +1,8 @@
+typings
+public/js/compiled
 .idea
+.vscode
+
 *.css
 .DS_Store
 
