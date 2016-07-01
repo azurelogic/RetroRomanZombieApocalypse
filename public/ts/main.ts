@@ -3,13 +3,17 @@ import ko from "knockout";
 import io from "socket.io";
 import * as uuid from "node-uuid";
 
-import {Character, Player, Zombie} from "./classes";
+import {Character} from './Character'
+import {Player} from './Player'
+import {Zombie} from './Zombie'
 
-var KEYCODE_SPACE = 32;
-var KEYCODE_UP = 38;
-var KEYCODE_LEFT = 37;
-var KEYCODE_RIGHT = 39;
-var KEYCODE_DOWN = 40;
+enum Keycode {
+    Space = 32,
+    Up = 38,
+    Left = 37,
+    Right = 39,
+    Down = 40
+}
 
 class Globals {
     static canvas;
@@ -36,8 +40,6 @@ class Globals {
     static viewModel;
     static sendLocalPlayerMotion: boolean;
 }
-
-
 
 // initialize the whole game site
 function init() {
@@ -383,35 +385,35 @@ function handleKeyDown(e) {
     return handleKeySignals(e, function (e, player) {
         var nonGameKeyPressed = true;
         switch (e.keyCode) {
-            case KEYCODE_LEFT:
+            case Keycode.Left:
                 if (!Globals.keyPressedLeft) {
                     Globals.keyPressedLeft = true;
                     player.startLeftMotion();
                 }
                 nonGameKeyPressed = false;
                 break;
-            case KEYCODE_RIGHT:
+            case Keycode.Right:
                 if (!Globals.keyPressedRight) {
                     Globals.keyPressedRight = true;
                     player.startRightMotion();
                 }
                 nonGameKeyPressed = false;
                 break;
-            case KEYCODE_DOWN:
+            case Keycode.Down:
                 if (!Globals.keyPressedDown) {
                     Globals.keyPressedDown = true;
                     player.startDownMotion();
                 }
                 nonGameKeyPressed = false;
                 break;
-            case  KEYCODE_UP:
+            case  Keycode.Up:
                 if (!Globals.keyPressedUp) {
                     Globals.keyPressedUp = true;
                     player.startUpMotion();
                 }
                 nonGameKeyPressed = false;
                 break;
-            case KEYCODE_SPACE:
+            case Keycode.Space:
                 if (!Globals.keyPressedSpace) {
                     player.justAttacked = true;
                     Globals.keyPressedSpace = true;
@@ -433,27 +435,27 @@ function handleKeyUp(e) {
     return handleKeySignals(e, function (e, player) {
         var nonGameKeyPressed = true;
         switch (e.keyCode) {
-            case KEYCODE_LEFT:
+            case Keycode.Left:
                 Globals.keyPressedLeft = false;
                 player.stopLeftRightMotion();
                 nonGameKeyPressed = false;
                 break;
-            case KEYCODE_RIGHT:
+            case Keycode.Right:
                 Globals.keyPressedRight = false;
                 player.stopLeftRightMotion();
                 nonGameKeyPressed = false;
                 break;
-            case KEYCODE_DOWN:
+            case Keycode.Down:
                 Globals.keyPressedDown = false;
                 player.stopUpDownMotion();
                 nonGameKeyPressed = false;
                 break;
-            case KEYCODE_UP:
+            case Keycode.Up:
                 Globals.keyPressedUp = false;
                 player.stopUpDownMotion();
                 nonGameKeyPressed = false;
                 break;
-            case KEYCODE_SPACE:
+            case Keycode.Space:
                 Globals.keyPressedSpace = false;
                 nonGameKeyPressed = false;
                 break;
